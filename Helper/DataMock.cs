@@ -1,6 +1,6 @@
-﻿using UrlShortner.Models;
+﻿using UrlShortener.Models;
 
-namespace UrlShortner.Helper;
+namespace UrlShortener.Helper;
 
 public class DataMock
 {

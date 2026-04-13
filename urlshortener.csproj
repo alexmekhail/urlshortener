@@ -4,15 +4,26 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <UserSecretsId>urlshortener-dev-secrets</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Exclude the test project from the main build -->
+    <Compile Remove="UrlShortener.Tests/**" />
+    <Content Remove="UrlShortener.Tests/**" />
+    <EmbeddedResource Remove="UrlShortener.Tests/**" />
+    <None Remove="UrlShortener.Tests/**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.7" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.0.7" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="8.0.7" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.7">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
   </ItemGroup>
 
 </Project>

@@ -4,10 +4,10 @@ using System.Net.Http.Headers;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Encodings.Web;
-using UrlShortner.Helper;
+using UrlShortener.Helper;
 using System.Security.Cryptography;
 
-namespace UrlShortner.Security;
+namespace UrlShortener.Security;
 
 public class BasicAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,

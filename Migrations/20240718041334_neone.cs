@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace urlshortener.Migrations
+namespace UrlShortener.Migrations
 {
     /// <inheritdoc />
     public partial class neone : Migration

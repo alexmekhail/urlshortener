@@ -1,75 +1,112 @@
-using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Identity.Client;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using UrlShortener.Models;
-using UrlShortner.Models;
+using UrlShortener.Services;
 
-namespace UrlShortner.Controllers;
+namespace UrlShortener.Controllers;
 
-[Authorize(AuthenticationSchemes = $"BasicAuthentication")]
 [ApiController]
-[Route("[controller]")]
+[Route("api/urls")]
 public class ShortUrlsController : ControllerBase
 {
     private readonly UrlShortenerContext _context;
-    public ShortUrlsController(UrlShortenerContext context)
+    private readonly ISlugGenerator _slugGenerator;
+    private readonly IConfiguration _configuration;
+
+    public ShortUrlsController(UrlShortenerContext context, ISlugGenerator slugGenerator, IConfiguration configuration)
     {
         _context = context;
+        _slugGenerator = slugGenerator;
+        _configuration = configuration;
     }
-    
-    [HttpPut("{id}")]
-    public string CreateShortUrl(string id, [FromBody] JsonElement body)
-    {
-        var domainName = $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}";
 
-        Console.WriteLine($"request to create: {id}, {body.GetProperty("url")}");
-        Url url = new()
+    /// <summary>
+    /// Creates a new short URL. No authentication required — anonymous users can shorten links.
+    /// Returns the existing short link (200) if the long URL has already been registered,
+    /// or the newly created short link (201) otherwise.
+    /// </summary>
+    [HttpPost]
+    [AllowAnonymous]
+    public async Task<ActionResult<string>> CreateShortUrl([FromBody] ShortUrl request)
+    {
+        if (!Uri.TryCreate(request.Url, UriKind.Absolute, out var uri) ||
+            (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
         {
-            OriginalUrl = body.GetProperty("url").ToString(),
-            ShortenedUrl = $"{domainName}/navigate/{Guid.NewGuid()}",
-            UrlId = id,
-            UserId = 0
+            return BadRequest("URL must be a valid http or https address.");
+        }
+
+        // Duplicate detection: return the existing short link instead of creating a new one.
+        var existing = await _context.Urls.FirstOrDefaultAsync(u => u.OriginalUrl == request.Url && u.IsActive);
+        if (existing != null)
+        {
+            return Ok(existing.ShortenedUrl);
+        }
+
+        var slug = await _slugGenerator.GenerateUniqueSlugAsync(_context);
+        // Use the configured canonical domain (e.g. https://url-y.net) if set,
+        // otherwise fall back to the request's own host — useful in local dev.
+        var configuredDomain = _configuration["App:ShortUrlDomain"];
+        var domainName = string.IsNullOrWhiteSpace(configuredDomain)
+            ? $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}"
+            : configuredDomain.TrimEnd('/');
+
+        var url = new Url
+        {
+            UrlId = slug,
+            OriginalUrl = request.Url,
+            ShortenedUrl = $"{domainName}/{slug}",
+            UserId = 0,
+            CreatedAt = DateTime.UtcNow,
+            IsActive = true
         };
 
         _context.Urls.Add(url);
-        _context.SaveChanges();
+        await _context.SaveChangesAsync();
 
-        return url.ShortenedUrl;
+        return StatusCode(StatusCodes.Status201Created, url.ShortenedUrl);
     }
 
-    [HttpDelete("{id}")]
-    public string DeleteShortUrl(string id)
+    /// <summary>
+    /// Soft-deletes a short URL by setting IsActive = false.
+    /// Requires a valid X-Api-Key header.
+    /// </summary>
+    [HttpDelete("{slug}")]
+    [Authorize(AuthenticationSchemes = "ApiKey")]
+    public async Task<ActionResult<string>> DeleteShortUrl(string slug)
     {
-        Console.WriteLine($"request to delete: {id}");
-
-        var url = _context.Urls.FirstOrDefault(u => string.Equals(u.UrlId, id));
-        if (url != null)
-        {
-            _context.Remove(url);
-            _context.SaveChanges();
-            return "deleted!";
-        }
-
-        return "not found!";
-    }
-
-    [HttpGet("{id}")]
-    public Url? GetShortUrl(string id)
-    {
-        var url = _context.Urls.SingleOrDefault(u => u.UrlId == id);
-
+        var url = await _context.Urls.FirstOrDefaultAsync(u => u.UrlId == slug);
         if (url == null)
         {
-            return new Models.Url();
+            return NotFound($"Short URL with slug '{slug}' not found.");
         }
 
-        return url;
+        url.IsActive = false;
+        await _context.SaveChangesAsync();
+
+        return Ok("Short URL deactivated.");
     }
 
-    [HttpGet]
-    public List<Url> List()
+    [HttpGet("{slug}")]
+    public async Task<ActionResult<Url>> GetShortUrl(string slug)
     {
-        return _context.Urls.ToList();
+        var url = await _context.Urls.SingleOrDefaultAsync(u => u.UrlId == slug);
+        return url == null ? NotFound() : Ok(url);
+    }
+
+    /// <summary>
+    /// Returns all active short URLs ordered newest-first.
+    /// Requires a valid X-Api-Key header.
+    /// </summary>
+    [HttpGet]
+    [Authorize(AuthenticationSchemes = "ApiKey")]
+    public async Task<ActionResult<List<Url>>> List()
+    {
+        var urls = await _context.Urls
+            .Where(u => u.IsActive)
+            .OrderByDescending(u => u.CreatedAt)
+            .ToListAsync();
+        return Ok(urls);
     }
 }

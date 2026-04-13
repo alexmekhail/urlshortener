@@ -1,8 +1,8 @@
 ﻿using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
-using UrlShortner.Helper;
+using UrlShortener.Helper;
 
-namespace UrlShortner.Security;
+namespace UrlShortener.Security;
 
 public class ClaimsTransformation : IClaimsTransformation
 {

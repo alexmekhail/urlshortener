@@ -1,7 +1,0 @@
-/Users/alexmekhail/urlshortener/bin/Publish/urlshortener
-/Users/alexmekhail/urlshortener/bin/Publish/appsettings.Development.json
-/Users/alexmekhail/urlshortener/bin/Publish/appsettings.json
-/Users/alexmekhail/urlshortener/bin/Publish/urlshortener.dll
-/Users/alexmekhail/urlshortener/bin/Publish/urlshortener.deps.json
-/Users/alexmekhail/urlshortener/bin/Publish/urlshortener.runtimeconfig.json
-/Users/alexmekhail/urlshortener/bin/Publish/urlshortener.pdb

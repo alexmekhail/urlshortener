@@ -1,1 +1,12 @@
 /url-shortner.zip
+bin/
+obj/
+api-deploy.zip
+publish-output/
+urlshortener-dev.db
+*.db
+
+# Frontend build artifacts & secrets
+frontend/.next/
+frontend/node_modules/
+frontend/.env.local

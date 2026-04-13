@@ -12,3 +12,8 @@ Authorization: Basic olivia.green@example.com:passwordabc
 {
     "url": "https://www.cnn.com/2024/09/14/americas/venezuela-arrests-americans-seizes-rifles-intl-latam/index.html"
 }
+
+GET {https://kw-lever.onrender.com}
+Accept: application/json
+Authorization: Basic olivia.green@example.com:passwordabc
+hello: Kitware

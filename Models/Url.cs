@@ -1,20 +1,26 @@
-using System;
 using System.ComponentModel.DataAnnotations;
-namespace UrlShortner.Models
+
+namespace UrlShortener.Models;
+
+public class Url
 {
-    public class Url
-    {
-        public string? UrlId { get; set; }
+    [Key]
+    public string UrlId { get; set; } = string.Empty;
 
-        [Required]
-        public int UserId { get; set; }
+    [Required]
+    public int UserId { get; set; }
 
-        [Required]
-        [StringLength(2000)]
-        public string? OriginalUrl { get; set; }
+    [Required]
+    [StringLength(2000)]
+    public required string OriginalUrl { get; set; }
 
-        [Required]
-        [StringLength(50)]
-        public string? ShortenedUrl { get; set; }
-    }
+    [Required]
+    [StringLength(500)]
+    public required string ShortenedUrl { get; set; }
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public DateTime? ExpiresAt { get; set; }
+
+    public bool IsActive { get; set; } = true;
 }

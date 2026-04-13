@@ -1,0 +1,32 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore urlshortener.sln
+
+      - name: Build
+        run: dotnet build urlshortener.sln --no-restore --configuration Release
+
+      - name: Test
+        # Auth__ApiKey is passed so the WebApplicationFactory can start up even if
+        # ConfigureAppConfiguration in the test class hasn't run yet.
+        env:
+          Auth__ApiKey: ci-dummy-api-key
+        run: dotnet test urlshortener.sln --no-build --configuration Release --verbosity normal
