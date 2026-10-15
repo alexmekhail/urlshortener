@@ -15,7 +15,9 @@ public class NavigateController : ControllerBase
         _context = context;
     }
 
-    [HttpGet("{slug}")]
+    // length(6) constraint ensures known frontend routes (e.g. /dashboard) never match here.
+    // All slugs are exactly 6 characters (see SlugGenerator.SlugLength).
+    [HttpGet("{slug:length(6)}")]
     public async Task<IActionResult> Navigate(string slug)
     {
         var url = await _context.Urls.SingleOrDefaultAsync(u => u.UrlId == slug && u.IsActive);

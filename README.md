@@ -1,180 +1,165 @@
 # URLy — URL Shortener
 
-A full-stack URL shortener with a custom domain, built with ASP.NET Core 8 and Next.js 14.
+A full-stack URL shortener: paste a long link, get a short one. Built as a portfolio demo.
 
-**Live:** [https://url-y.net](https://url-y.net) — shorten any link, no account required.
-**Dashboard:** [https://frontend-am11.vercel.app/dashboard](https://frontend-am11.vercel.app/dashboard) — admin view (API key required).
-
-- **Anyone** can shorten a link — no account or sign-up needed.
-- **Admins** can list all active links and soft-delete them via an API key.
-- Duplicate URLs return the existing short link instead of creating a new one.
+**Live demo:** https://urlshortener.onrender.com *(~1 min cold start — Render free tier sleeps after 15 min of inactivity)*
 
 ---
 
 ## Stack
 
 | Layer | Technology |
-|-------|-----------|
-| API | ASP.NET Core 8 Web API |
-| Database | Azure SQL (EF Core 8) · SQLite fallback for local dev |
-| Frontend | Next.js 14 (App Router) |
-| Hosting — API | Azure App Service (Free tier) |
-| Hosting — Frontend | Vercel |
-| Custom domain + SSL | Cloudflare (proxy + Worker → Azure) |
+|---|---|
+| API | C# / ASP.NET Core 8 |
+| ORM | Entity Framework Core 8 + Npgsql |
+| Database | Neon Postgres (serverless, free tier) |
+| Frontend | Next.js 14 / React 18 / Tailwind CSS (static export, served by ASP.NET) |
+| Hosting | Render free web service (Docker) |
+| CI | GitHub Actions |
 
----
+## Architecture
 
-## Project structure
-
-```
-urlshortener/               ← .NET solution root (git root)
-├── Controllers/
-│   ├── ShortURLsController.cs   (POST, GET, DELETE /api/urls)
-│   └── NavigateController.cs    (GET /{slug} → redirect)
-├── Migrations/
-├── Models/
-├── Security/
-│   └── ApiKeyAuthenticationHandler.cs
-├── Services/
-│   └── SlugGenerator.cs
-├── UrlShortener.Tests/     ← integration tests (WebApplicationFactory)
-├── frontend/               ← Next.js app
-│   ├── src/
-│   │   ├── app/            (App Router pages)
-│   │   ├── components/
-│   │   ├── lib/api.ts      (all fetch calls)
-│   │   └── types/
-│   └── .env.local.example
-├── appsettings.json
-├── Program.cs
-└── urlshortener.sln
+```mermaid
+graph LR
+    Browser -->|GET /| API[ASP.NET Core\nRender Web Service]
+    Browser -->|POST /api/urls| API
+    Browser -->|GET /abc123| API
+    API -->|Migrate + Query| DB[(Neon Postgres)]
+    API -->|Serves wwwroot| Static[Next.js Static Export]
 ```
 
----
-
-## Running locally
-
-### Prerequisites
-
-| Tool | Version |
-|------|---------|
-| .NET SDK | 8.x |
-| Node.js | 18+ |
-
-No external database needed — the API falls back to a local SQLite file automatically when `DefaultConnection` is not set.
+> The frontend is compiled to static HTML/JS at Docker build time and served directly by
+> ASP.NET Core as `wwwroot`. No separate frontend server is needed.
 
 ---
 
-### 1 — API
+## Key Features
 
-```bash
-cd urlshortener   # solution root
-
-# Optional: override the admin key (defaults to a dev placeholder)
-dotnet user-secrets set "Auth:ApiKey" "my-secret-key"
-
-dotnet run
-# → http://localhost:5000
-```
-
-The SQLite database (`urlshortener-dev.db`) is created automatically on first run.
+- **Shorten any http/https URL** — no account required
+- **Admin dashboard** — list and deactivate links (requires API key)
+- **Case-sensitive slugs** — 6-character base-62 random codes
+- **Duplicate detection** — posting the same URL twice returns the same short link
+- **Security**: rate limiting (10 POST/IP/min), http/https-only, max URL length (2000 chars), self-referral rejection
+- **Auto-migrations** on startup — schema is always up to date
+- **`/health`** endpoint for Render's health check
 
 ---
 
-### 2 — Frontend
-
-```bash
-cd frontend
-cp .env.local.example .env.local   # sets NEXT_PUBLIC_API_URL=http://localhost:5000
-
-npm install
-npm run dev
-# → http://localhost:3000
-```
-
-| Page | URL | Description |
-|------|-----|-------------|
-| Home | `/` | Shorten any URL — no auth required |
-| Dashboard | `/dashboard` | Enter your API key to list and delete links |
-
----
-
-## Environment variables
-
-### API
-
-| Variable | Local (user-secrets) | Production (App Setting) |
-|----------|---------------------|--------------------------|
-| `ConnectionStrings:DefaultConnection` | `dotnet user-secrets set` | `CONNECTIONSTRINGS__DEFAULTCONNECTION` |
-| `Auth:ApiKey` | `dotnet user-secrets set` | `AUTH__APIKEY` |
-| `App:ShortUrlDomain` | `appsettings.json` | `APP__SHORTURLDOMAIN` |
-| `Cors:AllowedOrigins:0` | `appsettings.json` | `CORS__ALLOWEDORIGINS__0` |
-
-> `App:ShortUrlDomain` sets the canonical domain embedded in generated short links (e.g. `https://url-y.net`).
-> If unset the API falls back to the incoming request host — correct for local dev.
-
-### Frontend
-
-| Variable | Purpose | Example |
-|----------|---------|---------|
-| `NEXT_PUBLIC_API_URL` | Base URL of the .NET API (no trailing slash) | `https://url-y.net` |
-
----
-
-## API reference
+## API Endpoints
 
 | Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `POST` | `/api/urls` | None | Shorten a URL. Body: `{"url":"https://..."}`. Returns 201 (new) or 200 (duplicate). |
-| `GET` | `/api/urls` | `X-Api-Key` | List all active URLs, newest first. |
-| `GET` | `/api/urls/{slug}` | None | Get a single URL record. |
-| `DELETE` | `/api/urls/{slug}` | `X-Api-Key` | Soft-delete (sets `IsActive = false`). |
-| `GET` | `/{slug}` | None | Redirect to the original URL (302). Unknown slugs redirect to google.com. |
+|---|---|---|---|
+| `POST` | `/api/urls` | None | Create a short URL |
+| `GET` | `/api/urls` | API key | List all active URLs |
+| `GET` | `/api/urls/{slug}` | None | Get URL record by slug |
+| `DELETE` | `/api/urls/{slug}` | API key | Soft-delete (deactivate) |
+| `GET` | `/{slug}` | None | Redirect to original URL |
+| `GET` | `/health` | None | Health check |
+
+**Example — shorten a URL:**
+```bash
+curl -X POST https://urlshortener.onrender.com/api/urls \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://github.com/alexmekhail"}'
+# → "https://urlshortener.onrender.com/ab1Cd2"
+```
+
+**Example — delete a link (requires API key from Render dashboard):**
+```bash
+curl -X DELETE https://urlshortener.onrender.com/api/urls/ab1Cd2 \
+  -H "X-Api-Key: your-api-key"
+```
 
 ---
 
-## Running the tests
+## Screenshots
 
+> *Add a screenshot of the home page here*
+> ![Home page](docs/screenshot-home.png)
+
+> *Add a screenshot of the dashboard here*
+> ![Dashboard](docs/screenshot-dashboard.png)
+
+---
+
+## Testing
+
+**What's covered:**
+- 4 slug generator unit tests (length, charset, variety, no special chars)
+- 15 API integration tests (create, delete, list, redirect, CORS, auth)
+- 3 case-sensitivity tests (Postgres is case-sensitive; slugs must match exactly)
+- URL validation tests (max length, self-referral rejection, http/https-only)
+- Rate limiting tests (POST returns 429 after limit is exceeded; GET is not limited)
+
+Integration tests use **Testcontainers** — a real Postgres container spins up per test class. No mocks.
+
+**Run locally:**
 ```bash
 dotnet test urlshortener.sln --verbosity normal
 ```
 
-Uses an EF Core in-memory database and `WebApplicationFactory` — no real database or secrets needed.
+> Docker must be running (Testcontainers needs it for the Postgres container).
 
 ---
 
-## Deploying to production
+## Local Dev Setup
 
-### Frontend → Vercel
+**With Docker Compose (recommended):**
+```bash
+# Copy and edit env vars
+cp .env.example .env.local      # then fill in AUTH__APIKEY
 
-1. Import the repo in the [Vercel dashboard](https://vercel.com/new).
-2. Set **Root Directory** to `urlshortener/frontend`.
-3. Add environment variable: `NEXT_PUBLIC_API_URL = https://url-y.net`
-4. Deploy.
+# Build and start (API on http://localhost:5000)
+docker compose up --build
 
-### API → Azure App Service
+# The API is now at http://localhost:5000
+# Swagger UI:  http://localhost:5000/swagger
+```
 
-1. Publish the project: `dotnet publish -c Release -o ./publish-output`
-2. Zip and deploy: `az webapp deploy --resource-group <rg> --name <app> --src-path api-deploy.zip --type zip`
-3. Add Application Settings:
+**Without Docker (frontend + backend separately):**
+```bash
+# Terminal 1 — API
+dotnet run --project urlshortener.csproj
+# Requires a local Postgres; set DATABASE_URL in your environment or user-secrets
 
-   | Name | Value |
-   |------|-------|
-   | `CONNECTIONSTRINGS__DEFAULTCONNECTION` | Azure SQL connection string |
-   | `AUTH__APIKEY` | Strong random secret |
-   | `APP__SHORTURLDOMAIN` | `https://url-y.net` |
-   | `CORS__ALLOWEDORIGINS__0` | `https://frontend-am11.vercel.app` |
-
-### Custom domain (Cloudflare)
-
-A Cloudflare Worker proxies `url-y.net` → `alexmekhurlshortener.azurewebsites.net`, with the `Host` header rewritten so Azure routes the request correctly. Cloudflare handles SSL for free.
+# Terminal 2 — Frontend dev server
+cd frontend
+cp .env.local.example .env.local    # set NEXT_PUBLIC_API_URL=http://localhost:5000
+npm install && npm run dev
+# Frontend: http://localhost:3000
+```
 
 ---
 
-## CI
+## Environment Variables
 
-GitHub Actions (`.github/workflows/build.yml`) runs on every push to `main`:
+| Variable | Required | Description |
+|---|---|---|
+| `DATABASE_URL` | Yes | Neon (or any Postgres) connection string — `postgres://user:pass@host/db` |
+| `AUTH__APIKEY` | Yes | Secret key for the admin API (set `X-Api-Key` header) |
+| `APP__SHORTURLDOMAIN` | Yes | Public base URL used to build short links, e.g. `https://urlshortener.onrender.com` |
+| `PORT` | Set by Render | TCP port to listen on (defaults to 5000 locally) |
+| `CORS__ALLOWEDORIGINS__0` | No | Extra origin to allow (not needed when frontend is same-origin) |
+| `ASPNETCORE_ENVIRONMENT` | No | `Development` enables Swagger UI |
 
-1. Restore dependencies
-2. Build (Release)
-3. Run all tests (`Auth__ApiKey` injected via workflow `env`)
+---
+
+## Deployment (Render + Neon)
+
+1. **Neon:** create a free Postgres project → copy the connection string.
+2. **Render:** create a new Web Service → connect this repo → choose *Docker*.
+3. Set env vars in the Render dashboard:
+   - `DATABASE_URL` → paste the Neon connection string
+   - `APP__SHORTURLDOMAIN` → paste the `https://<service>.onrender.com` URL Render assigns
+   - `AUTH__APIKEY` → Render can generate one for you (Blueprint does this automatically)
+4. (Optional) Use the **Render Blueprint** — connect the repo and Render will read `render.yaml` to configure everything automatically.
+
+Render auto-deploys from `main` on every push.
+
+---
+
+## Hosting History
+
+Originally deployed on **Azure App Service** (Free tier) with **Azure SQL Database** (serverless).
+Azure SQL alone was costing ~$10/day even on the serverless plan.
+Migrated to **Render + Neon Postgres** in October 2026 — total hosting cost is now **$0/month**.

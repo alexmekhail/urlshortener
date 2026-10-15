@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: urlshortener
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    # Render free plan: service sleeps after 15 min of inactivity (~1 min cold start)
+    plan: free
+    envVars:
+      # Paste your Neon postgres:// connection string here (never commit a real value)
+      - key: DATABASE_URL
+        sync: false
+
+      # Render will generate a random value on first deploy — copy it from the dashboard
+      - key: AUTH__APIKEY
+        generateValue: true
+
+      # Set to the public URL Render assigns: https://<service-name>.onrender.com
+      - key: APP__SHORTURLDOMAIN
+        sync: false
+
+      # Optional: add CORS__ALLOWEDORIGINS__0 if a separate frontend origin needs access

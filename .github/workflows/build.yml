@@ -25,8 +25,13 @@ jobs:
         run: dotnet build urlshortener.sln --no-restore --configuration Release
 
       - name: Test
-        # Auth__ApiKey is passed so the WebApplicationFactory can start up even if
-        # ConfigureAppConfiguration in the test class hasn't run yet.
+        # Auth__ApiKey is required for the WebApplicationFactory to start correctly.
+        # Testcontainers spins up a real Postgres container for integration tests;
+        # Docker is available by default on ubuntu-latest GitHub Actions runners.
         env:
           Auth__ApiKey: ci-dummy-api-key
+          TESTCONTAINERS_RYUK_DISABLED: "false"
         run: dotnet test urlshortener.sln --no-build --configuration Release --verbosity normal
+
+      - name: Build Docker image
+        run: docker build -t urlshortener:ci .

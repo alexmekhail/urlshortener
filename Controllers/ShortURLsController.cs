@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using UrlShortener.Models;
 using UrlShortener.Services;
 
@@ -23,31 +23,42 @@ public class ShortUrlsController : ControllerBase
     }
 
     /// <summary>
-    /// Creates a new short URL. No authentication required — anonymous users can shorten links.
-    /// Returns the existing short link (200) if the long URL has already been registered,
+    /// Creates a new short URL. No authentication required.
+    /// Returns the existing short link (200) if the long URL was already registered,
     /// or the newly created short link (201) otherwise.
+    /// Rate-limited to 10 requests per IP per minute.
     /// </summary>
     [HttpPost]
     [AllowAnonymous]
+    [EnableRateLimiting("link-creation")]
     public async Task<ActionResult<string>> CreateShortUrl([FromBody] ShortUrl request)
     {
+        // Validate scheme
         if (!Uri.TryCreate(request.Url, UriKind.Absolute, out var uri) ||
             (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps))
         {
             return BadRequest("URL must be a valid http or https address.");
         }
 
+        // Enforce max length (the DB column is 2000 chars)
+        if (request.Url.Length > 2000)
+            return BadRequest("URL must not exceed 2000 characters.");
+
+        // Reject self-referral (prevents the shortener being used to obscure its own links)
+        var configuredDomain = _configuration["App:ShortUrlDomain"];
+        if (!string.IsNullOrWhiteSpace(configuredDomain) &&
+            Uri.TryCreate(configuredDomain, UriKind.Absolute, out var shortenerUri) &&
+            uri.Host.Equals(shortenerUri.Host, StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest("URL must not point to this shortener's own domain.");
+        }
+
         // Duplicate detection: return the existing short link instead of creating a new one.
         var existing = await _context.Urls.FirstOrDefaultAsync(u => u.OriginalUrl == request.Url && u.IsActive);
         if (existing != null)
-        {
             return Ok(existing.ShortenedUrl);
-        }
 
         var slug = await _slugGenerator.GenerateUniqueSlugAsync(_context);
-        // Use the configured canonical domain (e.g. https://url-y.net) if set,
-        // otherwise fall back to the request's own host — useful in local dev.
-        var configuredDomain = _configuration["App:ShortUrlDomain"];
         var domainName = string.IsNullOrWhiteSpace(configuredDomain)
             ? $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}"
             : configuredDomain.TrimEnd('/');
@@ -59,7 +70,7 @@ public class ShortUrlsController : ControllerBase
             ShortenedUrl = $"{domainName}/{slug}",
             UserId = 0,
             CreatedAt = DateTime.UtcNow,
-            IsActive = true
+            IsActive = true,
         };
 
         _context.Urls.Add(url);
@@ -78,13 +89,10 @@ public class ShortUrlsController : ControllerBase
     {
         var url = await _context.Urls.FirstOrDefaultAsync(u => u.UrlId == slug);
         if (url == null)
-        {
             return NotFound($"Short URL with slug '{slug}' not found.");
-        }
 
         url.IsActive = false;
         await _context.SaveChangesAsync();
-
         return Ok("Short URL deactivated.");
     }
 

@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // All API calls go to NEXT_PUBLIC_API_URL — no server-side proxy needed.
+  // Static export: outputs to /out, served by ASP.NET Core as wwwroot.
+  // All pages are 'use client' so SSR is not needed.
+  output: 'export',
+  trailingSlash: false, // generates dashboard.html (not dashboard/index.html)
 }
 
 export default nextConfig

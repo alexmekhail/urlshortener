@@ -1,9 +1,14 @@
 import { ApiError } from '@/types'
 import type { UrlRecord } from '@/types'
 
-/** Strip a trailing slash so callers don't have to think about it. */
+/**
+ * When served from the same origin (Render), NEXT_PUBLIC_API_URL is empty and
+ * calls use relative paths like /api/urls.
+ * For local dev with the Next.js dev server, set NEXT_PUBLIC_API_URL=http://localhost:5000
+ * in frontend/.env.local.
+ */
 const base = () =>
-  (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:5000').replace(/\/$/, '')
+  (process.env.NEXT_PUBLIC_API_URL ?? '').replace(/\/$/, '')
 
 // ── Shared response handler ───────────────────────────────────────────────────
 
