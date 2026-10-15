@@ -2,7 +2,7 @@
 
 A full-stack URL shortener: paste a long link, get a short one. Built as a portfolio demo.
 
-**Live demo:** https://urlshortener.onrender.com *(~1 min cold start — Render free tier sleeps after 15 min of inactivity)*
+**Live demo:** https://www.url-y.net *(~1 min cold start — Render free tier sleeps after 15 min of inactivity)*
 
 ---
 
@@ -58,15 +58,15 @@ graph LR
 
 **Example — shorten a URL:**
 ```bash
-curl -X POST https://urlshortener.onrender.com/api/urls \
+curl -X POST https://www.url-y.net/api/urls \
   -H "Content-Type: application/json" \
   -d '{"url": "https://github.com/alexmekhail"}'
-# → "https://urlshortener.onrender.com/ab1Cd2"
+# → "https://www.url-y.net/ab1Cd2"
 ```
 
 **Example — delete a link (requires API key from Render dashboard):**
 ```bash
-curl -X DELETE https://urlshortener.onrender.com/api/urls/ab1Cd2 \
+curl -X DELETE https://www.url-y.net/api/urls/ab1Cd2 \
   -H "X-Api-Key: your-api-key"
 ```
 
