@@ -1,0 +1,18 @@
+{
+  "services": {
+    "frontend": {
+      "root": "frontend/"
+    },
+    "api": {
+      "runtime": "container",
+      "root": ".",
+      "entrypoint": "Dockerfile"
+    }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": { "service": "api" } },
+    { "source": "/health",   "destination": { "service": "api" } },
+    { "source": "/:slug([A-Za-z0-9]{6})", "destination": { "service": "api" } },
+    { "source": "/(.*)",     "destination": { "service": "frontend" } }
+  ]
+}
