@@ -19,7 +19,7 @@ public class Program
 
         var builder = WebApplication.CreateBuilder(args);
 
-        // Render injects PORT at runtime; fall back to 5000 for local dev.
+        // Vercel (and Render) inject PORT at runtime; fall back to 5000 for local dev.
         var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
         builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
 
@@ -82,22 +82,29 @@ public class Program
         // ── Pipeline ──────────────────────────────────────────────────────────
         var app = builder.Build();
 
-        // Apply EF migrations and seed demo data on startup.
-        // For a demo this is simpler than a separate migration step.
-        try
+        // Run EF migrations only in Development (tests) or when RUN_MIGRATIONS=1 is set.
+        // In production (Vercel), skip migrations on boot for a fast cold start.
+        // To migrate manually: set RUN_MIGRATIONS=1 and redeploy, then remove it.
+        var runMigrations =
+            app.Environment.IsDevelopment() ||
+            Environment.GetEnvironmentVariable("RUN_MIGRATIONS") == "1";
+
+        if (runMigrations)
         {
-            using var scope = app.Services.CreateScope();
-            var db = scope.ServiceProvider.GetRequiredService<UrlShortenerContext>();
-            db.Database.Migrate();
-            if (builder.Configuration.GetValue("App:SeedDemoData", true))
-                DataSeeder.Seed(db, builder.Configuration);
-        }
-        catch (Exception ex)
-        {
-            var logger = app.Services.GetRequiredService<ILogger<Program>>();
-            logger.LogError(ex, "Database startup failed. Ensure DATABASE_URL is configured correctly.");
-            if (!app.Environment.IsDevelopment())
+            try
+            {
+                using var scope = app.Services.CreateScope();
+                var db = scope.ServiceProvider.GetRequiredService<UrlShortenerContext>();
+                db.Database.Migrate();
+                if (builder.Configuration.GetValue("App:SeedDemoData", true))
+                    DataSeeder.Seed(db, builder.Configuration);
+            }
+            catch (Exception ex)
+            {
+                var logger = app.Services.GetRequiredService<ILogger<Program>>();
+                logger.LogError(ex, "Migration failed. Ensure DATABASE_URL is configured correctly.");
                 throw;
+            }
         }
 
         if (app.Environment.IsDevelopment())
@@ -105,19 +112,6 @@ public class Program
             app.UseSwagger();
             app.UseSwaggerUI();
         }
-
-        // ── Static files (Next.js export in wwwroot) ──────────────────────────
-        app.UseDefaultFiles();   // / → /index.html
-        app.UseStaticFiles();    // _next/static/*, *.css, *.js, etc.
-
-        // Serve the dashboard page (Next.js export generates /dashboard.html)
-        app.MapGet("/dashboard", (IWebHostEnvironment env) =>
-        {
-            var webRoot = env.WebRootPath;
-            if (webRoot is null) return Results.NotFound();
-            var path = Path.Combine(webRoot, "dashboard.html");
-            return File.Exists(path) ? Results.File(path, "text/html") : Results.NotFound();
-        });
 
         // ── Health check ──────────────────────────────────────────────────────
         app.MapGet("/health", async (UrlShortenerContext db) =>

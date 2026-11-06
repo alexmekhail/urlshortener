@@ -1,15 +1,5 @@
-# ── Stage 1: Build Next.js frontend ──────────────────────────────────────────
-FROM node:20-alpine AS frontend
-WORKDIR /src
-COPY frontend/package*.json ./
-RUN npm ci --prefer-offline
-COPY frontend/ .
-# Empty NEXT_PUBLIC_API_URL → relative /api/... calls (same-origin, no CORS needed)
-ENV NEXT_PUBLIC_API_URL=""
-RUN npm run build
-
-# ── Stage 2: Build ASP.NET Core API ──────────────────────────────────────────
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS backend
+# ── Stage 1: Build ───────────────────────────────────────────────────────────
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 COPY urlshortener.csproj ./
 RUN dotnet restore
@@ -23,16 +13,14 @@ COPY Services/ ./Services/
 COPY Program.cs .
 COPY UrlShortenerContextFactory.cs .
 COPY appsettings*.json .
-RUN dotnet publish -c Release -o /publish
+# PublishReadyToRun pre-compiles to native code, cutting cold-start JIT time.
+RUN dotnet publish -c Release -o /publish -p:PublishReadyToRun=true
 
-# ── Stage 3: Runtime image ────────────────────────────────────────────────────
+# ── Stage 2: Runtime ─────────────────────────────────────────────────────────
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
-COPY --from=backend /publish .
-# wwwroot is where ASP.NET Core's static files middleware looks by default
-COPY --from=frontend /src/out ./wwwroot
-
+COPY --from=build /publish .
 ENV ASPNETCORE_ENVIRONMENT=Production
-# PORT is injected by Render at runtime; Program.cs reads it via Environment.GetEnvironmentVariable
-EXPOSE 10000
+# Vercel injects PORT at runtime; Program.cs reads it via Environment.GetEnvironmentVariable.
+EXPOSE 8080
 ENTRYPOINT ["dotnet", "urlshortener.dll"]

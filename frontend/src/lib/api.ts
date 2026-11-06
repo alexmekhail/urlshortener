@@ -2,8 +2,8 @@ import { ApiError } from '@/types'
 import type { UrlRecord } from '@/types'
 
 /**
- * When served from the same origin (Render), NEXT_PUBLIC_API_URL is empty and
- * calls use relative paths like /api/urls.
+ * On Vercel the frontend and API share the same domain via rewrites, so
+ * NEXT_PUBLIC_API_URL is empty and calls use relative paths like /api/urls.
  * For local dev with the Next.js dev server, set NEXT_PUBLIC_API_URL=http://localhost:5000
  * in frontend/.env.local.
  */
