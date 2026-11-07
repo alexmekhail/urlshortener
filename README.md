@@ -21,7 +21,7 @@ A full-stack URL shortener: paste a long link, get a short one. Built as a portf
 ```mermaid
 graph LR
     Browser -->|GET /| Vercel[Vercel Edge\nRewrite]
-    Vercel -->|/api/*, /health, /{slug}| API[ASP.NET Core\nContainer service]
+    Vercel -->|"/api/*, /health, /{slug}"| API[ASP.NET Core\nContainer service]
     Vercel -->|/*| FE[Next.js\nFrontend service]
     API -->|Query| DB[(Neon Postgres)]
 ```
