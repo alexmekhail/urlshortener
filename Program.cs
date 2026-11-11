@@ -75,6 +75,8 @@ public class Program
 
         // ── Application services ──────────────────────────────────────────────
         builder.Services.AddScoped<ISlugGenerator, SlugGenerator>();
+        builder.Services.AddSingleton<IClickEventQueue, ClickEventQueue>();
+        builder.Services.AddHostedService<ClickIngestionService>();
         builder.Services.AddControllers();
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();

@@ -40,12 +40,30 @@ Both services share the same Vercel domain. Routing is handled by `vercel.json`:
 ## Key Features
 
 - **Shorten any http/https URL** — no account required
-- **Admin dashboard** — list and deactivate links (requires API key)
+- **Admin dashboard** — list and deactivate links, with a per-link click count (requires API key)
+- **Click analytics** — total clicks, a daily time series, and referrer/country/device/browser breakdowns per link
 - **Case-sensitive slugs** — 6-character base-62 random codes
 - **Duplicate detection** — posting the same URL twice returns the same short link
 - **Security**: rate limiting (10 POST/IP/min), http/https-only, max URL length (2000 chars), self-referral rejection
 - **`/health`** endpoint for uptime monitoring
 - **Fast cold starts** — `PublishReadyToRun` pre-compiles .NET to native code; Vercel scales down after 5 min idle but restarts in ~2–5 s
+
+### Click Analytics
+
+Every redirect enqueues a click event (timestamp, referrer host, country, device type,
+browser — **never the raw IP address**) onto a bounded in-memory queue. A background
+service drains the queue and batch-inserts into Postgres, so recording a click never
+adds latency to the redirect response; if the queue is ever full, new events are
+dropped rather than blocking.
+
+Country comes from the `x-vercel-ip-country` header (present on Vercel; absent/`null`
+elsewhere). Device type and browser are parsed from the User-Agent with a small
+built-in heuristic — no external UA-parsing dependency.
+
+**Caching tradeoff:** redirects used to be cached by the CDN/browser for 5 minutes
+(`public, max-age=300`). Click analytics require every click to actually reach the
+API, so redirects are now served with `Cache-Control: private, no-store`. This trades
+away CDN offload for accurate click counts — every redirect is a live request to the API.
 
 ---
 
@@ -57,7 +75,8 @@ Both services share the same Vercel domain. Routing is handled by `vercel.json`:
 | `GET` | `/api/urls` | API key | List all active URLs |
 | `GET` | `/api/urls/{slug}` | None | Get URL record by slug |
 | `DELETE` | `/api/urls/{slug}` | API key | Soft-delete (deactivate) |
-| `GET` | `/{slug}` | None | Redirect to original URL |
+| `GET` | `/{slug}` | None | Redirect to original URL (records a click) |
+| `GET` | `/api/urls/{slug}/stats?days=30` | API key | Click analytics: totals, daily series, referrer/country/device/browser breakdowns |
 | `GET` | `/health` | None | Health check |
 
 **Example — shorten a URL:**

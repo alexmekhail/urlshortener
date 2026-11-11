@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import Link from 'next/link'
 import { getUrls, deactivateUrl } from '@/lib/api'
 import { ApiError } from '@/types'
 import type { UrlRecord } from '@/types'
@@ -245,9 +246,14 @@ export default function DashboardPage() {
                         : 'bg-white/[0.015] opacity-60'
                     }`}
                   >
-                    {/* Slug */}
+                    {/* Slug — links through to the per-link stats view */}
                     <td className="whitespace-nowrap px-4 py-3 font-mono text-indigo-300">
-                      {u.urlId}
+                      <Link
+                        href={`/dashboard/links/${encodeURIComponent(u.urlId)}`}
+                        className="underline decoration-dotted underline-offset-2 transition hover:text-indigo-200"
+                      >
+                        {u.urlId}
+                      </Link>
                     </td>
 
                     {/* Original URL — full URL shown on hover */}
@@ -262,8 +268,8 @@ export default function DashboardPage() {
                       {formatDate(u.createdAt)}
                     </td>
 
-                    {/* Hits — not yet tracked by the API */}
-                    <td className="px-4 py-3 text-zinc-600">—</td>
+                    {/* Hits */}
+                    <td className="px-4 py-3 text-zinc-300">{u.clickCount}</td>
 
                     {/* Status */}
                     <td className="px-4 py-3">

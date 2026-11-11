@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace UrlShortener.Models;
 
@@ -23,4 +24,8 @@ public class Url
     public DateTime? ExpiresAt { get; set; }
 
     public bool IsActive { get; set; } = true;
+
+    /// <summary>Total recorded clicks. Computed per-query, not a database column.</summary>
+    [NotMapped]
+    public int ClickCount { get; set; }
 }

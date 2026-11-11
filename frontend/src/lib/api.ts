@@ -1,5 +1,5 @@
 import { ApiError } from '@/types'
-import type { UrlRecord } from '@/types'
+import type { UrlRecord, UrlStats } from '@/types'
 
 /**
  * On Vercel the frontend and API share the same domain via rewrites, so
@@ -108,4 +108,21 @@ export async function deactivateUrl(slug: string, apiKey: string): Promise<void>
     headers: { 'X-Api-Key': apiKey },
   })
   await handleResponse<void>(res)
+}
+
+/**
+ * GET /api/urls/{slug}/stats?days=N
+ * Requires X-Api-Key header.
+ * Returns click analytics for the trailing N days (default 30).
+ * Throws ApiError on 401 (bad key) or 404 (slug not found).
+ */
+export async function getUrlStats(slug: string, apiKey: string, days = 30): Promise<UrlStats> {
+  const res = await fetch(
+    `${base()}/api/urls/${encodeURIComponent(slug)}/stats?days=${days}`,
+    {
+      cache: 'no-store',
+      headers: { 'X-Api-Key': apiKey },
+    },
+  )
+  return handleResponse<UrlStats>(res)
 }
