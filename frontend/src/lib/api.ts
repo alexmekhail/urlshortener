@@ -1,5 +1,5 @@
 import { ApiError } from '@/types'
-import type { UrlRecord } from '@/types'
+import type { UrlRecord, UrlStats } from '@/types'
 
 /**
  * On Vercel the frontend and API share the same domain via rewrites, so
@@ -69,13 +69,15 @@ async function handleResponse<T>(res: Response): Promise<T> {
  * POST /api/urls
  * No authentication required.
  * Returns the short URL string (e.g. "http://localhost:5000/navigate/abc123").
- * Throws ApiError on 400 (validation) or network failure.
+ * `expiresIn` is one of "1h", "1d", "7d", "30d", or omitted for no expiry.
+ * `alias` is an optional custom slug (3-30 chars, letters/numbers/hyphen/underscore).
+ * Throws ApiError on 400 (validation), 409 (alias taken), or network failure.
  */
-export async function shortenUrl(url: string): Promise<string> {
+export async function shortenUrl(url: string, expiresIn?: string, alias?: string): Promise<string> {
   const res = await fetch(`${base()}/api/urls`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ url, expiresIn: expiresIn || null, alias: alias || null }),
   })
   // The API returns a JSON-quoted string — handleResponse already JSON.parses it.
   return handleResponse<string>(res)
@@ -108,4 +110,21 @@ export async function deactivateUrl(slug: string, apiKey: string): Promise<void>
     headers: { 'X-Api-Key': apiKey },
   })
   await handleResponse<void>(res)
+}
+
+/**
+ * GET /api/urls/{slug}/stats?days=N
+ * Requires X-Api-Key header.
+ * Returns click analytics for the trailing N days (default 30).
+ * Throws ApiError on 401 (bad key) or 404 (slug not found).
+ */
+export async function getUrlStats(slug: string, apiKey: string, days = 30): Promise<UrlStats> {
+  const res = await fetch(
+    `${base()}/api/urls/${encodeURIComponent(slug)}/stats?days=${days}`,
+    {
+      cache: 'no-store',
+      headers: { 'X-Api-Key': apiKey },
+    },
+  )
+  return handleResponse<UrlStats>(res)
 }

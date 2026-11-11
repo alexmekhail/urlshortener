@@ -14,12 +14,18 @@ public class ShortUrlsController : ControllerBase
     private readonly UrlShortenerContext _context;
     private readonly ISlugGenerator _slugGenerator;
     private readonly IConfiguration _configuration;
+    private readonly IUrlSafetyChecker _safetyChecker;
 
-    public ShortUrlsController(UrlShortenerContext context, ISlugGenerator slugGenerator, IConfiguration configuration)
+    public ShortUrlsController(
+        UrlShortenerContext context,
+        ISlugGenerator slugGenerator,
+        IConfiguration configuration,
+        IUrlSafetyChecker safetyChecker)
     {
         _context = context;
         _slugGenerator = slugGenerator;
         _configuration = configuration;
+        _safetyChecker = safetyChecker;
     }
 
     /// <summary>
@@ -53,12 +59,45 @@ public class ShortUrlsController : ControllerBase
             return BadRequest("URL must not point to this shortener's own domain.");
         }
 
-        // Duplicate detection: return the existing short link instead of creating a new one.
-        var existing = await _context.Urls.FirstOrDefaultAsync(u => u.OriginalUrl == request.Url && u.IsActive);
-        if (existing != null)
-            return Ok(existing.ShortenedUrl);
+        if (!await _safetyChecker.IsSafeAsync(request.Url, HttpContext.RequestAborted))
+            return BadRequest("This URL has been flagged as unsafe and can't be shortened.");
 
-        var slug = await _slugGenerator.GenerateUniqueSlugAsync(_context);
+        if (!ExpirationOptions.TryResolve(request.ExpiresIn, out var expiresAt))
+        {
+            return BadRequest(
+                $"Invalid expiresIn value. Must be one of: {string.Join(", ", ExpirationOptions.ValidValues)}, or omitted for no expiry.");
+        }
+
+        var alias = string.IsNullOrWhiteSpace(request.Alias) ? null : request.Alias;
+        if (alias != null)
+        {
+            if (!AliasValidator.IsValidFormat(alias))
+            {
+                return BadRequest(
+                    $"Alias must be {AliasValidator.MinLength}-{AliasValidator.MaxLength} characters " +
+                    "and contain only letters, numbers, hyphens, and underscores.");
+            }
+
+            if (ReservedAliases.IsReserved(alias))
+                return BadRequest($"'{alias}' is a reserved word and can't be used as an alias.");
+
+            // Case-sensitive, like generated slugs.
+            var aliasTaken = await _context.Urls.AnyAsync(u => u.UrlId == alias);
+            if (aliasTaken)
+                return Conflict($"The alias '{alias}' is already taken.");
+        }
+
+        // Duplicate detection: only when no expiry and no custom alias were requested, and only
+        // reuses a link that is itself active, not expired, and also has no expiry (same expiry setting).
+        if (expiresAt == null && alias == null)
+        {
+            var existing = await _context.Urls.FirstOrDefaultAsync(u =>
+                u.OriginalUrl == request.Url && u.IsActive && u.ExpiresAt == null);
+            if (existing != null)
+                return Ok(existing.ShortenedUrl);
+        }
+
+        var slug = alias ?? await _slugGenerator.GenerateUniqueSlugAsync(_context);
         var domainName = string.IsNullOrWhiteSpace(configuredDomain)
             ? $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}"
             : configuredDomain.TrimEnd('/');
@@ -70,7 +109,9 @@ public class ShortUrlsController : ControllerBase
             ShortenedUrl = $"{domainName}/{slug}",
             UserId = 0,
             CreatedAt = DateTime.UtcNow,
+            ExpiresAt = expiresAt,
             IsActive = true,
+            LastSafetyCheckAt = DateTime.UtcNow,
         };
 
         _context.Urls.Add(url);
@@ -104,7 +145,7 @@ public class ShortUrlsController : ControllerBase
     }
 
     /// <summary>
-    /// Returns all active short URLs ordered newest-first.
+    /// Returns all active short URLs ordered newest-first, including a total click count per URL.
     /// Requires a valid X-Api-Key header.
     /// </summary>
     [HttpGet]
@@ -115,6 +156,72 @@ public class ShortUrlsController : ControllerBase
             .Where(u => u.IsActive)
             .OrderByDescending(u => u.CreatedAt)
             .ToListAsync();
+
+        var slugs = urls.Select(u => u.UrlId).ToList();
+        var counts = await _context.Clicks
+            .Where(c => slugs.Contains(c.UrlId))
+            .GroupBy(c => c.UrlId)
+            .Select(g => new { g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.Key, x => x.Count);
+
+        foreach (var url in urls)
+            url.ClickCount = counts.GetValueOrDefault(url.UrlId, 0);
+
         return Ok(urls);
+    }
+
+    /// <summary>
+    /// Returns click analytics for a single short URL over the trailing <paramref name="days"/> days
+    /// (default 30, max 365): total clicks, a daily time series, and referrer/country/device/browser
+    /// breakdowns. Requires a valid X-Api-Key header.
+    /// </summary>
+    [HttpGet("{slug}/stats")]
+    [Authorize(AuthenticationSchemes = "ApiKey")]
+    public async Task<ActionResult<UrlStatsResponse>> GetStats(string slug, [FromQuery] int days = 30)
+    {
+        var urlExists = await _context.Urls.AnyAsync(u => u.UrlId == slug);
+        if (!urlExists)
+            return NotFound($"Short URL with slug '{slug}' not found.");
+
+        var windowDays = Math.Clamp(days <= 0 ? 30 : days, 1, 365);
+        var since = DateTime.UtcNow.Date.AddDays(-(windowDays - 1));
+
+        var clicks = await _context.Clicks
+            .Where(c => c.UrlId == slug && c.ClickedAt >= since)
+            .ToListAsync();
+
+        var clicksPerDay = clicks
+            .GroupBy(c => DateOnly.FromDateTime(c.ClickedAt))
+            .Select(g => new DailyClickCount(g.Key, g.Count()))
+            .OrderBy(d => d.Date)
+            .ToList();
+
+        var topReferrers = BreakdownBy(clicks, c => c.ReferrerHost, take: 10);
+        var countries = BreakdownBy(clicks, c => c.Country);
+        var devices = BreakdownBy(clicks, c => c.DeviceType);
+        var browsers = BreakdownBy(clicks, c => c.Browser);
+
+        return Ok(new UrlStatsResponse
+        {
+            Slug = slug,
+            TotalClicks = clicks.Count,
+            ClicksPerDay = clicksPerDay,
+            TopReferrers = topReferrers,
+            Countries = countries,
+            Devices = devices,
+            Browsers = browsers,
+        });
+    }
+
+    private static List<CountBreakdown> BreakdownBy(
+        List<Click> clicks, Func<Click, string?> keySelector, int? take = null)
+    {
+        var query = clicks
+            .Where(c => !string.IsNullOrEmpty(keySelector(c)))
+            .GroupBy(c => keySelector(c)!)
+            .Select(g => new CountBreakdown(g.Key, g.Count()))
+            .OrderByDescending(b => b.Count);
+
+        return (take.HasValue ? query.Take(take.Value) : query).ToList();
     }
 }

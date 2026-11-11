@@ -161,7 +161,7 @@ public class ApiIntegrationTests : IClassFixture<PostgresFixture>
         });
         var navResponse = await redirectClient.GetAsync($"/{slug}");
         Assert.Equal(HttpStatusCode.Found, navResponse.StatusCode);
-        Assert.StartsWith("https://www.google.com", navResponse.Headers.Location?.ToString());
+        Assert.EndsWith("/link-not-found", navResponse.Headers.Location?.ToString());
     }
 
     [Fact]
@@ -215,7 +215,7 @@ public class ApiIntegrationTests : IClassFixture<PostgresFixture>
     // ── GET /{slug} (redirect) ────────────────────────────────────────────────
 
     [Fact]
-    public async Task Navigate_UnknownSlug_RedirectsToGoogle()
+    public async Task Navigate_UnknownSlug_RedirectsToLinkNotFoundPage()
     {
         var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
         {
@@ -225,7 +225,7 @@ public class ApiIntegrationTests : IClassFixture<PostgresFixture>
         var response = await client.GetAsync("/xxxxxx");
 
         Assert.Equal(HttpStatusCode.Found, response.StatusCode);
-        Assert.StartsWith("https://www.google.com", response.Headers.Location?.ToString());
+        Assert.EndsWith("/link-not-found", response.Headers.Location?.ToString());
     }
 
     [Fact]
@@ -253,7 +253,7 @@ public class ApiIntegrationTests : IClassFixture<PostgresFixture>
     // ── Case-sensitivity (Postgres is case-sensitive; SQL Server was not) ─────
 
     [Fact]
-    public async Task Navigate_WrongCaseSlug_RedirectsToGoogle()
+    public async Task Navigate_WrongCaseSlug_RedirectsToLinkNotFoundPage()
     {
         var client = _factory.CreateClient();
         const string longUrl = "https://example.com/case-sensitivity-test";
@@ -279,7 +279,7 @@ public class ApiIntegrationTests : IClassFixture<PostgresFixture>
         var navResponse = await redirectClient.GetAsync($"/{wrongCaseSlug}");
 
         Assert.Equal(HttpStatusCode.Found, navResponse.StatusCode);
-        Assert.StartsWith("https://www.google.com", navResponse.Headers.Location?.ToString());
+        Assert.EndsWith("/link-not-found", navResponse.Headers.Location?.ToString());
     }
 
     // ── CORS ──────────────────────────────────────────────────────────────────

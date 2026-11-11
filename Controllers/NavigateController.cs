@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using UrlShortener.Models;
+using UrlShortener.Services;
 
 namespace UrlShortener.Controllers;
 
@@ -8,24 +9,86 @@ namespace UrlShortener.Controllers;
 [Route("")]   // slugs live at the root: GET /{slug}
 public class NavigateController : ControllerBase
 {
-    private readonly UrlShortenerContext _context;
+    private static readonly TimeSpan SafetyRecheckInterval = TimeSpan.FromHours(24);
 
-    public NavigateController(UrlShortenerContext context)
+    private readonly UrlShortenerContext _context;
+    private readonly IClickEventQueue _clickQueue;
+    private readonly IUrlSafetyChecker _safetyChecker;
+
+    public NavigateController(
+        UrlShortenerContext context,
+        IClickEventQueue clickQueue,
+        IUrlSafetyChecker safetyChecker)
     {
         _context = context;
+        _clickQueue = clickQueue;
+        _safetyChecker = safetyChecker;
     }
 
-    // length(6) constraint ensures known frontend routes (e.g. /dashboard) never match here.
-    // All slugs are exactly 6 characters (see SlugGenerator.SlugLength).
-    [HttpGet("{slug:length(6)}")]
+    // Matches both generated 6-char slugs and custom aliases (3-30 chars, [A-Za-z0-9_-];
+    // see AliasValidator). In production, vercel.json routes known frontend paths
+    // (/dashboard, /_next/*, etc.) to the frontend before a request ever reaches this
+    // route, so there's no runtime collision even though e.g. "dashboard" would
+    // technically match this pattern — ReservedAliases additionally guarantees no
+    // alias/slug is ever assigned one of those reserved words in the first place.
+    [HttpGet("{slug:regex([[A-Za-z0-9_-]]{{3,30}})}")]
     public async Task<IActionResult> Navigate(string slug)
     {
-        var url = await _context.Urls.SingleOrDefaultAsync(u => u.UrlId == slug && u.IsActive);
-        if (url == null) return Redirect("https://www.google.com");
+        var url = await _context.Urls.SingleOrDefaultAsync(u => u.UrlId == slug);
 
-        // Allow CDN and browsers to cache known redirects for 5 minutes.
-        // Links can still be deactivated; cached clients see the old target for up to 5 min.
-        Response.Headers["Cache-Control"] = "public, max-age=300, stale-while-revalidate=3600";
+        // Unknown or deactivated slugs land on the same "not found" page — deactivated
+        // links are intentionally indistinguishable from ones that never existed.
+        if (url == null || !url.IsActive)
+            return Redirect(BuildFrontendUrl("/link-not-found"));
+
+        if (url.ExpiresAt.HasValue && url.ExpiresAt.Value <= DateTime.UtcNow)
+            return Redirect(BuildFrontendUrl("/link-expired"));
+
+        // Re-check the target against Safe Browsing at most once per 24h. Most redirects
+        // skip this entirely; when it does run, the checker's own short timeout (and
+        // fail-open behavior) keeps the worst case bounded.
+        if (url.LastSafetyCheckAt == null || DateTime.UtcNow - url.LastSafetyCheckAt.Value >= SafetyRecheckInterval)
+        {
+            if (!await _safetyChecker.IsSafeAsync(url.OriginalUrl, HttpContext.RequestAborted))
+            {
+                url.IsActive = false;
+                await _context.SaveChangesAsync();
+                return Redirect(BuildFrontendUrl("/link-unsafe"));
+            }
+
+            url.LastSafetyCheckAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+
+        EnqueueClick(slug);
+
+        // Every click must reach the API to be recorded, so redirects are not CDN/browser-cached.
+        // Tradeoff: higher load per click (no CDN offload) in exchange for accurate analytics.
+        // See README "Click Analytics" section.
+        Response.Headers["Cache-Control"] = "private, no-store";
         return Redirect(url.OriginalUrl);
     }
+
+    // Deliberately uses the current request's own host rather than App:ShortUrlDomain:
+    // that config value is shared across environments (e.g. Preview and Production both
+    // point at the production domain), so using it here would bounce a Preview deployment's
+    // not-found/expired/unsafe redirects over to production instead of keeping them on the
+    // deployment that's actually serving the request. In production the two are identical.
+    private string BuildFrontendUrl(string path) => $"{Request.Scheme}://{Request.Host}{path}";
+
+    // Enqueues a best-effort analytics event; never blocks or slows the redirect.
+    // Intentionally does not record the client's raw IP address.
+    private void EnqueueClick(string slug)
+    {
+        var referrerHost = TryGetHost(Request.Headers["Referer"].ToString());
+        var country = Request.Headers["x-vercel-ip-country"].FirstOrDefault();
+        var (deviceType, browser) = UserAgentParser.Parse(Request.Headers["User-Agent"].ToString());
+
+        _clickQueue.Enqueue(new ClickEvent(slug, DateTime.UtcNow, referrerHost, country, deviceType, browser));
+    }
+
+    private static string? TryGetHost(string? referrer) =>
+        !string.IsNullOrWhiteSpace(referrer) && Uri.TryCreate(referrer, UriKind.Absolute, out var uri)
+            ? uri.Host
+            : null;
 }

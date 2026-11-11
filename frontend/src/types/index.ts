@@ -13,6 +13,31 @@ export interface UrlRecord {
   /** ISO 8601 datetime string, or null when no expiry is set */
   expiresAt: string | null
   isActive: boolean
+  /** Total recorded clicks for this link. */
+  clickCount: number
+}
+
+/** One named count in a stats breakdown (referrer host, country, device, browser). */
+export interface CountBreakdown {
+  key: string
+  count: number
+}
+
+/** Click count for a single calendar day (ISO 8601 date, e.g. "2026-11-10"). */
+export interface DailyClickCount {
+  date: string
+  count: number
+}
+
+/** Response shape of GET /api/urls/{slug}/stats */
+export interface UrlStats {
+  slug: string
+  totalClicks: number
+  clicksPerDay: DailyClickCount[]
+  topReferrers: CountBreakdown[]
+  countries: CountBreakdown[]
+  devices: CountBreakdown[]
+  browsers: CountBreakdown[]
 }
 
 /** Body sent to POST /api/urls */

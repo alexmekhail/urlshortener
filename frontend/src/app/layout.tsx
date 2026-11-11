@@ -16,10 +16,14 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} min-h-screen bg-gray-50 text-gray-900 antialiased`}>
-        <Header />
-        <main>{children}</main>
+    <html lang="en" className="dark">
+      <body
+        className={`${inter.className} min-h-screen bg-zinc-950 text-zinc-100 antialiased`}
+      >
+        <div className="relative flex min-h-screen flex-col">
+          <Header />
+          <main className="flex-1">{children}</main>
+        </div>
       </body>
     </html>
   )
