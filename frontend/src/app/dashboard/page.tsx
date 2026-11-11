@@ -6,6 +6,7 @@ import { getUrls, deactivateUrl } from '@/lib/api'
 import { ApiError } from '@/types'
 import type { UrlRecord } from '@/types'
 import Spinner from '@/components/Spinner'
+import QrModal from '@/components/QrModal'
 
 const LS_KEY = 'urlshortener_apikey'
 
@@ -98,6 +99,8 @@ export default function DashboardPage() {
   const [deactivating, setDeactivating] = useState<Record<string, boolean>>({})
   /** Per-row error messages from failed DELETE requests */
   const [rowErrors, setRowErrors] = useState<Record<string, string>>({})
+  /** The shortened URL whose QR modal is currently open, or null if none. */
+  const [qrModalUrl, setQrModalUrl] = useState<string | null>(null)
 
   // Hydrate the API key from localStorage on first render (client-only).
   // Setting apiKey here causes fetchUrls (which depends on apiKey) to re-run
@@ -293,16 +296,26 @@ export default function DashboardPage() {
 
                     {/* Action */}
                     <td className="px-4 py-3">
-                      {u.isActive ? (
-                        <DeactivateButton
-                          urlId={u.urlId}
-                          busy={!!deactivating[u.urlId]}
-                          error={rowErrors[u.urlId]}
-                          onDeactivate={handleDeactivate}
-                        />
-                      ) : (
-                        <span className="text-xs text-zinc-600">—</span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setQrModalUrl(u.shortenedUrl)}
+                          className="shrink-0 rounded-md border border-white/10 px-2 py-1 text-xs font-medium
+                            text-zinc-300 transition hover:bg-white/10 active:scale-95"
+                          aria-label={`Show QR code for ${u.urlId}`}
+                        >
+                          QR
+                        </button>
+                        {u.isActive ? (
+                          <DeactivateButton
+                            urlId={u.urlId}
+                            busy={!!deactivating[u.urlId]}
+                            error={rowErrors[u.urlId]}
+                            onDeactivate={handleDeactivate}
+                          />
+                        ) : (
+                          <span className="text-xs text-zinc-600">—</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -311,6 +324,8 @@ export default function DashboardPage() {
           </table>
         </div>
       )}
+
+      {qrModalUrl && <QrModal value={qrModalUrl} onClose={() => setQrModalUrl(null)} />}
     </div>
   )
 }

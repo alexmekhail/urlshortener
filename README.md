@@ -52,6 +52,7 @@ request reaches the API.
 - **Click analytics** — total clicks, a daily time series, and referrer/country/device/browser breakdowns per link
 - **Case-sensitive slugs** — 6-character base-62 random codes
 - **Custom aliases** — optional human-readable slug (3-30 chars) instead of a random one
+- **QR codes** — every short link gets a downloadable QR code (PNG or SVG), on the home page and per-row in the dashboard
 - **Link expiration** — optional `expiresIn` of 1 hour, 1 day, 7 days, or 30 days; expired links stop redirecting
 - **Duplicate detection** — posting the same URL twice (with no expiry or alias) returns the same short link
 - **Security**: rate limiting (10 POST/IP/min), http/https-only, max URL length (2000 chars), self-referral rejection
@@ -107,6 +108,16 @@ underscore only (`[A-Za-z0-9_-]`), case-sensitive like generated slugs.
 See the routing breakdown above — `ReservedAliases` is what keeps a custom alias from
 ever being assigned a name that `vercel.json` would route to the frontend instead of
 the API.
+
+### QR Codes
+
+Frontend-only — every short link gets a QR code, generated client-side with
+[`qrcode.react`](https://www.npmjs.com/package/qrcode.react) (the only new frontend
+dependency added across this project): on the home page in the result card, and
+per-row in the dashboard via a modal (`components/QrModal.tsx`). Both PNG (canvas)
+and SVG downloads are supported. The QR itself always renders as dark modules on a
+light background with a quiet-zone margin, independent of the app's dark theme, so
+it stays scannable.
 
 ---
 

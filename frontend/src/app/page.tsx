@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { shortenUrl } from '@/lib/api'
 import { ApiError } from '@/types'
 import Spinner from '@/components/Spinner'
+import QrCode from '@/components/QrCode'
 
 const EXPIRATION_LABELS: Record<string, string> = {
   '': 'Never expires',
@@ -227,6 +228,10 @@ export default function HomePage() {
               </button>
             </div>
             <p className="mt-3 text-xs text-zinc-500">{EXPIRATION_LABELS[resultExpiresIn]}</p>
+
+            <div className="mt-5 flex justify-center border-t border-white/10 pt-5">
+              <QrCode value={shortUrl} />
+            </div>
           </div>
         )}
       </div>
