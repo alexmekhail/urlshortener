@@ -49,16 +49,16 @@ export default function HomePage() {
     <div className="flex min-h-[calc(100vh-65px)] items-center justify-center px-4 py-12">
       <div className="w-full max-w-lg">
         {/* Hero */}
-        <h1 className="mb-2 text-center text-4xl font-extrabold tracking-tight text-gray-900">
+        <h1 className="mb-3 text-center text-4xl font-extrabold tracking-tight text-gradient-accent sm:text-5xl">
           Shorten any URL
         </h1>
-        <p className="mb-10 text-center text-base text-gray-500">
+        <p className="mb-10 text-center text-base text-zinc-400">
           Paste a long link and get a short one instantly — no account needed.
         </p>
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-3" noValidate>
-          <div>
+          <div className="glass flex flex-col gap-2 rounded-2xl border border-white/10 p-2 shadow-glow-sm sm:flex-row">
             <label htmlFor="url-input" className="sr-only">
               Long URL
             </label>
@@ -69,47 +69,48 @@ export default function HomePage() {
               onChange={(e) => setInputUrl(e.target.value)}
               placeholder="https://example.com/your/very/long/path?with=params"
               required
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm shadow-sm transition
-                focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200
-                disabled:bg-gray-100"
+              className="w-full flex-1 rounded-xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-100 shadow-sm transition
+                placeholder:text-zinc-500
+                focus:border-indigo-400/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/30
+                disabled:opacity-60"
               disabled={loading}
               aria-describedby={error ? 'url-error' : undefined}
             />
 
-            {/* Inline error — shown instead of alert() */}
-            {error && (
-              <p
-                id="url-error"
-                className="mt-2 flex items-start gap-1.5 text-sm text-red-600"
-                role="alert"
-              >
-                <span aria-hidden>⚠</span>
-                {error}
-              </p>
-            )}
+            <button
+              type="submit"
+              disabled={loading || !inputUrl}
+              className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-accent px-5 py-3
+                text-sm font-semibold text-white shadow-sm transition
+                hover:opacity-90 active:scale-[.98]
+                disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {loading && <Spinner />}
+              {loading ? 'Shortening…' : 'Shorten URL'}
+            </button>
           </div>
 
-          <button
-            type="submit"
-            disabled={loading || !inputUrl}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-3
-              text-sm font-semibold text-white shadow-sm transition
-              hover:bg-indigo-700 active:scale-[.98]
-              disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading && <Spinner />}
-            {loading ? 'Shortening…' : 'Shorten URL'}
-          </button>
+          {/* Inline error — shown instead of alert() */}
+          {error && (
+            <p
+              id="url-error"
+              className="flex items-start gap-1.5 px-1 text-sm text-red-400"
+              role="alert"
+            >
+              <span aria-hidden>⚠</span>
+              {error}
+            </p>
+          )}
         </form>
 
         {/* Success result */}
         {shortUrl && (
           <div
-            className="mt-8 rounded-xl border border-green-200 bg-green-50 p-5 shadow-sm"
+            className="mt-8 animate-fade-in-up rounded-2xl border border-indigo-400/20 bg-zinc-900/60 p-5 shadow-glow backdrop-blur-sm"
             role="region"
             aria-label="Your short link"
           >
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-green-600">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-violet-400">
               Your short link
             </p>
             <div className="flex items-center gap-3">
@@ -117,16 +118,16 @@ export default function HomePage() {
                 href={shortUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="min-w-0 flex-1 truncate text-sm font-medium text-indigo-600
-                  underline decoration-dotted underline-offset-2 hover:text-indigo-800"
+                className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-zinc-950/60 px-3 py-2
+                  font-mono text-sm text-indigo-300 transition hover:text-indigo-200"
               >
                 {shortUrl}
               </a>
               <button
                 onClick={handleCopy}
-                className="shrink-0 rounded-lg border border-green-300 bg-white px-3 py-1.5
-                  text-xs font-semibold text-green-700 shadow-sm transition
-                  hover:bg-green-100 active:scale-95"
+                className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-3 py-2
+                  text-xs font-semibold text-zinc-200 shadow-sm transition
+                  hover:bg-white/10 active:scale-95"
                 aria-label={copied ? 'Link copied!' : 'Copy short link'}
               >
                 {copied ? '✓ Copied!' : 'Copy'}
