@@ -55,6 +55,7 @@ request reaches the API.
 - **QR codes** — every short link gets a downloadable QR code (PNG or SVG), on the home page and per-row in the dashboard
 - **Link expiration** — optional `expiresIn` of 1 hour, 1 day, 7 days, or 30 days; expired links stop redirecting
 - **Duplicate detection** — posting the same URL twice (with no expiry or alias) returns the same short link
+- **Link safety** — target URLs are checked against Google Safe Browsing before shortening, and re-checked periodically
 - **Security**: rate limiting (10 POST/IP/min), http/https-only, max URL length (2000 chars), self-referral rejection
 - **`/health`** endpoint for uptime monitoring
 - **Fast cold starts** — `PublishReadyToRun` pre-compiles .NET to native code; Vercel scales down after 5 min idle but restarts in ~2–5 s
@@ -118,6 +119,28 @@ per-row in the dashboard via a modal (`components/QrModal.tsx`). Both PNG (canva
 and SVG downloads are supported. The QR itself always renders as dark modules on a
 light background with a quiet-zone margin, independent of the app's dark theme, so
 it stays scannable.
+
+### Link Safety
+
+Before creating a link, the target URL is checked against the
+[Google Safe Browsing Lookup API v4](https://developers.google.com/safe-browsing/v4/lookup-api)
+(`MALWARE`, `SOCIAL_ENGINEERING`, `UNWANTED_SOFTWARE`, `POTENTIALLY_HARMFUL_APPLICATION`)
+via `IUrlSafetyChecker` (`Services/GoogleSafeBrowsingChecker.cs`), a typed `HttpClient`
+with a 2-second timeout.
+
+- Flagged → `400 "This URL has been flagged as unsafe and can't be shortened."`
+- `GOOGLE_SAFE_BROWSING_API_KEY` not set, or the API errors or times out → **fails
+  open** (the link is created anyway) and logs a warning. This is a deliberate
+  tradeoff: an optional third-party dependency being down should never take down
+  link creation.
+- Tests never call Google — `UrlShortener.Tests/Fakes/FakeUrlSafetyChecker.cs` is
+  injected in its place.
+
+Links are also re-checked lazily on redirect, at most once per 24h per link (tracked
+via `Url.LastSafetyCheckAt`, set at creation time too so a brand-new link isn't
+re-checked on its first redirect). If a previously-safe link's target is later
+flagged, the link is deactivated and the visitor is redirected to `/link-unsafe`
+instead of the original URL.
 
 ---
 
@@ -215,6 +238,7 @@ npm install && npm run dev
 | `RUN_MIGRATIONS` | No | Set to `1` to run EF migrations on boot (use once after schema changes, then remove) |
 | `CORS__ALLOWEDORIGINS__0` | No | Extra origin to allow (not needed when frontend is same-origin) |
 | `ASPNETCORE_ENVIRONMENT` | No | `Development` enables Swagger UI |
+| `GOOGLE_SAFE_BROWSING_API_KEY` | No | Google Safe Browsing Lookup API v4 key. If unset, the unsafe-URL check is skipped (fails open) |
 
 ---
 
@@ -235,6 +259,7 @@ npm install && npm run dev
    | `DATABASE_URL` | Neon pooled `postgres://...` URI |
    | `AUTH__APIKEY` | A strong random secret (e.g. `openssl rand -hex 32`) |
    | `APP__SHORTURLDOMAIN` | Your Vercel production URL, e.g. `https://www.url-y.net` |
+   | `GOOGLE_SAFE_BROWSING_API_KEY` | Optional — from [Google Cloud console](https://console.cloud.google.com/apis/credentials) with the Safe Browsing API enabled. Omit to skip the unsafe-URL check. |
 
 4. **Run migrations once:** add `RUN_MIGRATIONS=1` to the production env vars, deploy, then remove it. Subsequent deploys skip migrations for a fast cold start.
 

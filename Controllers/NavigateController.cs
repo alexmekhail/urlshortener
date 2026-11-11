@@ -9,15 +9,23 @@ namespace UrlShortener.Controllers;
 [Route("")]   // slugs live at the root: GET /{slug}
 public class NavigateController : ControllerBase
 {
+    private static readonly TimeSpan SafetyRecheckInterval = TimeSpan.FromHours(24);
+
     private readonly UrlShortenerContext _context;
     private readonly IClickEventQueue _clickQueue;
     private readonly IConfiguration _configuration;
+    private readonly IUrlSafetyChecker _safetyChecker;
 
-    public NavigateController(UrlShortenerContext context, IClickEventQueue clickQueue, IConfiguration configuration)
+    public NavigateController(
+        UrlShortenerContext context,
+        IClickEventQueue clickQueue,
+        IConfiguration configuration,
+        IUrlSafetyChecker safetyChecker)
     {
         _context = context;
         _clickQueue = clickQueue;
         _configuration = configuration;
+        _safetyChecker = safetyChecker;
     }
 
     // Matches both generated 6-char slugs and custom aliases (3-30 chars, [A-Za-z0-9_-];
@@ -38,6 +46,22 @@ public class NavigateController : ControllerBase
 
         if (url.ExpiresAt.HasValue && url.ExpiresAt.Value <= DateTime.UtcNow)
             return Redirect(BuildFrontendUrl("/link-expired"));
+
+        // Re-check the target against Safe Browsing at most once per 24h. Most redirects
+        // skip this entirely; when it does run, the checker's own short timeout (and
+        // fail-open behavior) keeps the worst case bounded.
+        if (url.LastSafetyCheckAt == null || DateTime.UtcNow - url.LastSafetyCheckAt.Value >= SafetyRecheckInterval)
+        {
+            if (!await _safetyChecker.IsSafeAsync(url.OriginalUrl, HttpContext.RequestAborted))
+            {
+                url.IsActive = false;
+                await _context.SaveChangesAsync();
+                return Redirect(BuildFrontendUrl("/link-unsafe"));
+            }
+
+            url.LastSafetyCheckAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
 
         EnqueueClick(slug);
 

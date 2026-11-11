@@ -21,6 +21,7 @@
     { "source": "/dashboard/(.*)",    "destination": { "service": "frontend" } },
     { "source": "/link-expired",      "destination": { "service": "frontend" } },
     { "source": "/link-not-found",    "destination": { "service": "frontend" } },
+    { "source": "/link-unsafe",       "destination": { "service": "frontend" } },
 
     { "source": "/:slug([A-Za-z0-9_-]{3,30})", "destination": { "service": "api" } },
 

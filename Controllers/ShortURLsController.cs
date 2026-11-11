@@ -14,12 +14,18 @@ public class ShortUrlsController : ControllerBase
     private readonly UrlShortenerContext _context;
     private readonly ISlugGenerator _slugGenerator;
     private readonly IConfiguration _configuration;
+    private readonly IUrlSafetyChecker _safetyChecker;
 
-    public ShortUrlsController(UrlShortenerContext context, ISlugGenerator slugGenerator, IConfiguration configuration)
+    public ShortUrlsController(
+        UrlShortenerContext context,
+        ISlugGenerator slugGenerator,
+        IConfiguration configuration,
+        IUrlSafetyChecker safetyChecker)
     {
         _context = context;
         _slugGenerator = slugGenerator;
         _configuration = configuration;
+        _safetyChecker = safetyChecker;
     }
 
     /// <summary>
@@ -52,6 +58,9 @@ public class ShortUrlsController : ControllerBase
         {
             return BadRequest("URL must not point to this shortener's own domain.");
         }
+
+        if (!await _safetyChecker.IsSafeAsync(request.Url, HttpContext.RequestAborted))
+            return BadRequest("This URL has been flagged as unsafe and can't be shortened.");
 
         if (!ExpirationOptions.TryResolve(request.ExpiresIn, out var expiresAt))
         {
@@ -102,6 +111,7 @@ public class ShortUrlsController : ControllerBase
             CreatedAt = DateTime.UtcNow,
             ExpiresAt = expiresAt,
             IsActive = true,
+            LastSafetyCheckAt = DateTime.UtcNow,
         };
 
         _context.Urls.Add(url);

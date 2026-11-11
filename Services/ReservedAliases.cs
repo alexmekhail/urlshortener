@@ -22,6 +22,7 @@ public static class ReservedAliases
         "dashboard",
         "link-expired",
         "link-not-found",
+        "link-unsafe",
 
         // Reserved for future use, named explicitly in the product spec
         "admin",

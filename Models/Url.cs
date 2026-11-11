@@ -25,6 +25,12 @@ public class Url
 
     public bool IsActive { get; set; } = true;
 
+    /// <summary>
+    /// When this link's target was last checked against Google Safe Browsing (at
+    /// creation, and at most once per 24h thereafter, re-checked lazily on redirect).
+    /// </summary>
+    public DateTime? LastSafetyCheckAt { get; set; }
+
     /// <summary>Total recorded clicks. Computed per-query, not a database column.</summary>
     [NotMapped]
     public int ClickCount { get; set; }

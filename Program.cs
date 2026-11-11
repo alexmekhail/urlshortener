@@ -77,6 +77,11 @@ public class Program
         builder.Services.AddScoped<ISlugGenerator, SlugGenerator>();
         builder.Services.AddSingleton<IClickEventQueue, ClickEventQueue>();
         builder.Services.AddHostedService<ClickIngestionService>();
+        builder.Services.AddHttpClient<IUrlSafetyChecker, GoogleSafeBrowsingChecker>(client =>
+        {
+            client.BaseAddress = new Uri("https://safebrowsing.googleapis.com/");
+            client.Timeout = TimeSpan.FromSeconds(2);
+        });
         builder.Services.AddControllers();
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();

@@ -75,6 +75,9 @@ namespace urlshortener.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTime?>("LastSafetyCheckAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("OriginalUrl")
                         .IsRequired()
                         .HasMaxLength(2000)
