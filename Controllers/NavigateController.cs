@@ -11,11 +11,13 @@ public class NavigateController : ControllerBase
 {
     private readonly UrlShortenerContext _context;
     private readonly IClickEventQueue _clickQueue;
+    private readonly IConfiguration _configuration;
 
-    public NavigateController(UrlShortenerContext context, IClickEventQueue clickQueue)
+    public NavigateController(UrlShortenerContext context, IClickEventQueue clickQueue, IConfiguration configuration)
     {
         _context = context;
         _clickQueue = clickQueue;
+        _configuration = configuration;
     }
 
     // length(6) constraint ensures known frontend routes (e.g. /dashboard) never match here.
@@ -23,8 +25,15 @@ public class NavigateController : ControllerBase
     [HttpGet("{slug:length(6)}")]
     public async Task<IActionResult> Navigate(string slug)
     {
-        var url = await _context.Urls.SingleOrDefaultAsync(u => u.UrlId == slug && u.IsActive);
-        if (url == null) return Redirect("https://www.google.com");
+        var url = await _context.Urls.SingleOrDefaultAsync(u => u.UrlId == slug);
+
+        // Unknown or deactivated slugs land on the same "not found" page — deactivated
+        // links are intentionally indistinguishable from ones that never existed.
+        if (url == null || !url.IsActive)
+            return Redirect(BuildFrontendUrl("/link-not-found"));
+
+        if (url.ExpiresAt.HasValue && url.ExpiresAt.Value <= DateTime.UtcNow)
+            return Redirect(BuildFrontendUrl("/link-expired"));
 
         EnqueueClick(slug);
 
@@ -33,6 +42,15 @@ public class NavigateController : ControllerBase
         // See README "Click Analytics" section.
         Response.Headers["Cache-Control"] = "private, no-store";
         return Redirect(url.OriginalUrl);
+    }
+
+    private string BuildFrontendUrl(string path)
+    {
+        var configuredDomain = _configuration["App:ShortUrlDomain"];
+        var domainName = string.IsNullOrWhiteSpace(configuredDomain)
+            ? $"{Request.Scheme}://{Request.Host}"
+            : configuredDomain.TrimEnd('/');
+        return $"{domainName}{path}";
     }
 
     // Enqueues a best-effort analytics event; never blocks or slows the redirect.

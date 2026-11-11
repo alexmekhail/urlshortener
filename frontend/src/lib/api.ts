@@ -69,13 +69,14 @@ async function handleResponse<T>(res: Response): Promise<T> {
  * POST /api/urls
  * No authentication required.
  * Returns the short URL string (e.g. "http://localhost:5000/navigate/abc123").
+ * `expiresIn` is one of "1h", "1d", "7d", "30d", or omitted for no expiry.
  * Throws ApiError on 400 (validation) or network failure.
  */
-export async function shortenUrl(url: string): Promise<string> {
+export async function shortenUrl(url: string, expiresIn?: string): Promise<string> {
   const res = await fetch(`${base()}/api/urls`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url }),
+    body: JSON.stringify({ url, expiresIn: expiresIn || null }),
   })
   // The API returns a JSON-quoted string — handleResponse already JSON.parses it.
   return handleResponse<string>(res)

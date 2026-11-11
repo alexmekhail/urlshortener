@@ -43,7 +43,8 @@ Both services share the same Vercel domain. Routing is handled by `vercel.json`:
 - **Admin dashboard** — list and deactivate links, with a per-link click count (requires API key)
 - **Click analytics** — total clicks, a daily time series, and referrer/country/device/browser breakdowns per link
 - **Case-sensitive slugs** — 6-character base-62 random codes
-- **Duplicate detection** — posting the same URL twice returns the same short link
+- **Link expiration** — optional `expiresIn` of 1 hour, 1 day, 7 days, or 30 days; expired links stop redirecting
+- **Duplicate detection** — posting the same URL twice (with no expiry) returns the same short link
 - **Security**: rate limiting (10 POST/IP/min), http/https-only, max URL length (2000 chars), self-referral rejection
 - **`/health`** endpoint for uptime monitoring
 - **Fast cold starts** — `PublishReadyToRun` pre-compiles .NET to native code; Vercel scales down after 5 min idle but restarts in ~2–5 s
@@ -64,6 +65,23 @@ built-in heuristic — no external UA-parsing dependency.
 (`public, max-age=300`). Click analytics require every click to actually reach the
 API, so redirects are now served with `Cache-Control: private, no-store`. This trades
 away CDN offload for accurate click counts — every redirect is a live request to the API.
+
+### Link Expiration
+
+`POST /api/urls` accepts an optional `expiresIn`: one of `"1h"`, `"1d"`, `"7d"`, `"30d"`,
+or omitted/`null` for a link that never expires. Invalid values return `400`.
+
+Expiry is checked at redirect time, not via a cleanup job — an expired link simply
+stops redirecting (it stays in the database and still counts toward duplicate checks
+as "not a match"). Unknown, deactivated, and expired slugs all redirect (302) to a
+frontend page instead of the API returning a raw 404/410:
+
+- Unknown or deactivated slug → `/link-not-found`
+- Known slug past its `expiresAt` → `/link-expired`
+
+Duplicate detection only reuses an existing link when the request has **no** `expiresIn`
+and the existing link is active, not expired, and also has no expiry — a link created
+with an expiry is never deduplicated against.
 
 ---
 

@@ -5,9 +5,19 @@ import { shortenUrl } from '@/lib/api'
 import { ApiError } from '@/types'
 import Spinner from '@/components/Spinner'
 
+const EXPIRATION_LABELS: Record<string, string> = {
+  '': 'Never expires',
+  '1h': 'Expires in 1 hour',
+  '1d': 'Expires in 1 day',
+  '7d': 'Expires in 7 days',
+  '30d': 'Expires in 30 days',
+}
+
 export default function HomePage() {
   const [inputUrl, setInputUrl] = useState('')
+  const [expiresIn, setExpiresIn] = useState('')
   const [shortUrl, setShortUrl] = useState<string | null>(null)
+  const [resultExpiresIn, setResultExpiresIn] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -20,8 +30,9 @@ export default function HomePage() {
     setLoading(true)
 
     try {
-      const result = await shortenUrl(inputUrl)
+      const result = await shortenUrl(inputUrl, expiresIn)
       setShortUrl(result)
+      setResultExpiresIn(expiresIn)
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -90,6 +101,26 @@ export default function HomePage() {
             </button>
           </div>
 
+          {/* Expiration selector */}
+          <div className="flex items-center justify-center gap-2 px-1 text-sm text-zinc-400">
+            <label htmlFor="expires-select">Expires</label>
+            <select
+              id="expires-select"
+              value={expiresIn}
+              onChange={(e) => setExpiresIn(e.target.value)}
+              disabled={loading}
+              className="rounded-lg border border-white/10 bg-zinc-900/60 px-2 py-1 text-sm text-zinc-200 transition
+                focus:border-indigo-400/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/30
+                disabled:opacity-60"
+            >
+              <option value="">Never</option>
+              <option value="1h">1 hour</option>
+              <option value="1d">1 day</option>
+              <option value="7d">7 days</option>
+              <option value="30d">30 days</option>
+            </select>
+          </div>
+
           {/* Inline error — shown instead of alert() */}
           {error && (
             <p
@@ -133,6 +164,7 @@ export default function HomePage() {
                 {copied ? '✓ Copied!' : 'Copy'}
               </button>
             </div>
+            <p className="mt-3 text-xs text-zinc-500">{EXPIRATION_LABELS[resultExpiresIn]}</p>
           </div>
         )}
       </div>

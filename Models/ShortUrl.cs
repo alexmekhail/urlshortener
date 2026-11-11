@@ -18,4 +18,8 @@ public class ShortUrl
 
     [JsonPropertyName("hits")]
     public int Hits { get; set; }
+
+    /// <summary>One of "1h", "1d", "7d", "30d", or null/omitted for no expiry.</summary>
+    [JsonPropertyName("expiresIn")]
+    public string? ExpiresIn { get; set; }
 }

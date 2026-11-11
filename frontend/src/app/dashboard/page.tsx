@@ -21,6 +21,12 @@ function truncateUrl(url: string, max = 60): string {
   return url.length > max ? `${url.slice(0, max)}…` : url
 }
 
+function formatExpiry(expiresAt: string | null): { label: string; expired: boolean } {
+  if (!expiresAt) return { label: 'Never', expired: false }
+  const expired = new Date(expiresAt).getTime() <= Date.now()
+  return { label: expired ? `Expired ${formatDate(expiresAt)}` : formatDate(expiresAt), expired }
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function StatusBadge({ active }: { active: boolean }) {
@@ -213,7 +219,7 @@ export default function DashboardPage() {
           <table className="min-w-full divide-y divide-white/10 text-sm">
             <thead>
               <tr className="bg-white/[0.03]">
-                {['Slug', 'Original URL', 'Created', 'Hits', 'Status', 'Action'].map(
+                {['Slug', 'Original URL', 'Created', 'Expires', 'Hits', 'Status', 'Action'].map(
                   (heading) => (
                     <th
                       key={heading}
@@ -229,7 +235,7 @@ export default function DashboardPage() {
             <tbody className="divide-y divide-white/10">
               {urls.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-zinc-500">
+                  <td colSpan={7} className="px-4 py-12 text-center text-zinc-500">
                     No URLs yet.{' '}
                     <a href="/" className="text-indigo-400 hover:underline">
                       Shorten one on the home page!
@@ -266,6 +272,15 @@ export default function DashboardPage() {
                     {/* Created date */}
                     <td className="whitespace-nowrap px-4 py-3 text-zinc-500">
                       {formatDate(u.createdAt)}
+                    </td>
+
+                    {/* Expires */}
+                    <td
+                      className={`whitespace-nowrap px-4 py-3 ${
+                        formatExpiry(u.expiresAt).expired ? 'text-red-400' : 'text-zinc-500'
+                      }`}
+                    >
+                      {formatExpiry(u.expiresAt).label}
                     </td>
 
                     {/* Hits */}

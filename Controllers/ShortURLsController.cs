@@ -53,10 +53,21 @@ public class ShortUrlsController : ControllerBase
             return BadRequest("URL must not point to this shortener's own domain.");
         }
 
-        // Duplicate detection: return the existing short link instead of creating a new one.
-        var existing = await _context.Urls.FirstOrDefaultAsync(u => u.OriginalUrl == request.Url && u.IsActive);
-        if (existing != null)
-            return Ok(existing.ShortenedUrl);
+        if (!ExpirationOptions.TryResolve(request.ExpiresIn, out var expiresAt))
+        {
+            return BadRequest(
+                $"Invalid expiresIn value. Must be one of: {string.Join(", ", ExpirationOptions.ValidValues)}, or omitted for no expiry.");
+        }
+
+        // Duplicate detection: only when no expiry was requested, and only reuses a link
+        // that is itself active, not expired, and also has no expiry (same expiry setting).
+        if (expiresAt == null)
+        {
+            var existing = await _context.Urls.FirstOrDefaultAsync(u =>
+                u.OriginalUrl == request.Url && u.IsActive && u.ExpiresAt == null);
+            if (existing != null)
+                return Ok(existing.ShortenedUrl);
+        }
 
         var slug = await _slugGenerator.GenerateUniqueSlugAsync(_context);
         var domainName = string.IsNullOrWhiteSpace(configuredDomain)
@@ -70,6 +81,7 @@ public class ShortUrlsController : ControllerBase
             ShortenedUrl = $"{domainName}/{slug}",
             UserId = 0,
             CreatedAt = DateTime.UtcNow,
+            ExpiresAt = expiresAt,
             IsActive = true,
         };
 
