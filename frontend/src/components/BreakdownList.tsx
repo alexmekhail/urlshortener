@@ -24,7 +24,7 @@ export default function BreakdownList({ title, items, emptyLabel = 'No data yet'
               </span>
               <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/5">
                 <span
-                  className="block h-full rounded-full bg-gradient-accent"
+                  className="block h-full rounded-full bg-zinc-300"
                   style={{ width: `${(item.count / max) * 100}%` }}
                 />
               </span>

@@ -9,13 +9,12 @@ const config: Config = {
   theme: {
     extend: {
       backgroundImage: {
-        'gradient-accent': 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
         'dot-grid':
           'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.08) 1px, transparent 0)',
       },
       boxShadow: {
-        glow: '0 0 60px -15px rgba(129, 90, 245, 0.45)',
-        'glow-sm': '0 0 24px -8px rgba(129, 90, 245, 0.5)',
+        glow: '0 0 40px -12px rgba(255, 255, 255, 0.12)',
+        'glow-sm': '0 0 20px -8px rgba(255, 255, 255, 0.15)',
       },
       keyframes: {
         'fade-in-up': {

@@ -49,8 +49,8 @@ export default function ClicksChart({ data, label }: ClicksChartProps) {
       })}
       <defs>
         <linearGradient id="clicks-bar-gradient" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#8b5cf6" />
-          <stop offset="100%" stopColor="#6366f1" />
+          <stop offset="0%" stopColor="#f4f4f5" />
+          <stop offset="100%" stopColor="#71717a" />
         </linearGradient>
       </defs>
       <line

@@ -30,7 +30,7 @@ export default function QrModal({ value, onClose }: QrModalProps) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between gap-3">
-          <p className="truncate font-mono text-sm text-indigo-300">{value}</p>
+          <p className="truncate font-mono text-sm text-zinc-200">{value}</p>
           <button
             onClick={onClose}
             className="shrink-0 rounded-md p-1 text-zinc-400 transition hover:bg-white/10 hover:text-zinc-100"

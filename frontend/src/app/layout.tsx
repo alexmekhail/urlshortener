@@ -20,15 +20,6 @@ export default function RootLayout({
       <body
         className={`${inter.className} min-h-screen bg-zinc-950 text-zinc-100 antialiased`}
       >
-        {/* Decorative ambient glow — purely visual, no semantic content */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none fixed inset-0 overflow-hidden"
-        >
-          <div className="absolute left-1/2 top-[-10%] h-[480px] w-[480px] -translate-x-1/2 rounded-full bg-indigo-600/20 blur-[120px]" />
-          <div className="absolute bottom-[-15%] right-[-10%] h-[420px] w-[420px] rounded-full bg-violet-600/15 blur-[120px]" />
-        </div>
-
         <div className="relative flex min-h-screen flex-col">
           <Header />
           <main className="flex-1">{children}</main>

@@ -188,15 +188,15 @@ export default function DashboardPage() {
             placeholder="Paste your X-Api-Key here"
             className="min-w-0 flex-1 rounded-lg border border-white/10 bg-zinc-950/60 px-3 py-2 text-sm text-zinc-100 shadow-sm
               placeholder:text-zinc-500
-              focus:border-indigo-400/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/30"
+              focus:border-white/30 focus:outline-none focus:ring-2 focus:ring-white/10"
             aria-label="Admin API key"
           />
           <button
             onClick={() => void fetchUrls()}
             disabled={loading}
-            className="flex items-center gap-1.5 rounded-lg bg-gradient-accent px-4 py-2 text-sm
-              font-semibold text-white shadow-sm transition
-              hover:opacity-90 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg bg-white px-4 py-2 text-sm
+              font-semibold text-zinc-900 shadow-sm transition
+              hover:bg-zinc-200 disabled:opacity-50"
           >
             {loading && <Spinner className="h-3.5 w-3.5" />}
             {loading ? 'Loading…' : 'Refresh'}
@@ -240,7 +240,7 @@ export default function DashboardPage() {
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center text-zinc-500">
                     No URLs yet.{' '}
-                    <a href="/" className="text-indigo-400 hover:underline">
+                    <a href="/" className="text-zinc-200 underline hover:text-white">
                       Shorten one on the home page!
                     </a>
                   </td>
@@ -256,10 +256,10 @@ export default function DashboardPage() {
                     }`}
                   >
                     {/* Slug — links through to the per-link stats view */}
-                    <td className="whitespace-nowrap px-4 py-3 font-mono text-indigo-300">
+                    <td className="whitespace-nowrap px-4 py-3 font-mono text-zinc-200">
                       <Link
                         href={`/dashboard/links/${encodeURIComponent(u.urlId)}`}
-                        className="underline decoration-dotted underline-offset-2 transition hover:text-indigo-200"
+                        className="underline decoration-dotted underline-offset-2 transition hover:text-white"
                       >
                         {u.urlId}
                       </Link>

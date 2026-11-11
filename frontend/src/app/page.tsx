@@ -81,7 +81,7 @@ export default function HomePage() {
     <div className="flex min-h-[calc(100vh-65px)] items-center justify-center px-4 py-12">
       <div className="w-full max-w-lg">
         {/* Hero */}
-        <h1 className="mb-3 text-center text-4xl font-extrabold tracking-tight text-gradient-accent sm:text-5xl">
+        <h1 className="mb-3 text-center text-4xl font-extrabold tracking-tight text-zinc-50 sm:text-5xl">
           Shorten any URL
         </h1>
         <p className="mb-10 text-center text-base text-zinc-400">
@@ -103,7 +103,7 @@ export default function HomePage() {
               required
               className="w-full flex-1 rounded-xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-100 shadow-sm transition
                 placeholder:text-zinc-500
-                focus:border-indigo-400/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/30
+                focus:border-white/30 focus:outline-none focus:ring-2 focus:ring-white/10
                 disabled:opacity-60"
               disabled={loading}
               aria-describedby={error ? 'url-error' : undefined}
@@ -112,9 +112,9 @@ export default function HomePage() {
             <button
               type="submit"
               disabled={loading || !inputUrl}
-              className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-accent px-5 py-3
-                text-sm font-semibold text-white shadow-sm transition
-                hover:opacity-90 active:scale-[.98]
+              className="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-5 py-3
+                text-sm font-semibold text-zinc-900 shadow-sm transition
+                hover:bg-zinc-200 active:scale-[.98]
                 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading && <Spinner />}
@@ -132,7 +132,7 @@ export default function HomePage() {
                 onChange={(e) => setExpiresIn(e.target.value)}
                 disabled={loading}
                 className="rounded-lg border border-white/10 bg-zinc-900/60 px-2 py-1 text-sm text-zinc-200 transition
-                  focus:border-indigo-400/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/30
+                  focus:border-white/30 focus:outline-none focus:ring-2 focus:ring-white/10
                   disabled:opacity-60"
               >
                 <option value="">Never</option>
@@ -169,7 +169,7 @@ export default function HomePage() {
                 disabled={loading}
                 className="w-full rounded-lg border border-white/10 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 shadow-sm transition
                   placeholder:text-zinc-500
-                  focus:border-indigo-400/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/30
+                  focus:border-white/30 focus:outline-none focus:ring-2 focus:ring-white/10
                   disabled:opacity-60"
                 aria-describedby="alias-preview"
               />
@@ -200,11 +200,11 @@ export default function HomePage() {
         {/* Success result */}
         {shortUrl && (
           <div
-            className="mt-8 animate-fade-in-up rounded-2xl border border-indigo-400/20 bg-zinc-900/60 p-5 shadow-glow backdrop-blur-sm"
+            className="mt-8 animate-fade-in-up rounded-2xl border border-white/10 bg-zinc-900/60 p-5 shadow-glow backdrop-blur-sm"
             role="region"
             aria-label="Your short link"
           >
-            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-violet-400">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-widest text-zinc-400">
               Your short link
             </p>
             <div className="flex items-center gap-3">
@@ -213,7 +213,7 @@ export default function HomePage() {
                 target="_blank"
                 rel="noopener noreferrer"
                 className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-zinc-950/60 px-3 py-2
-                  font-mono text-sm text-indigo-300 transition hover:text-indigo-200"
+                  font-mono text-sm text-zinc-100 underline decoration-dotted underline-offset-2 transition hover:text-white"
               >
                 {shortUrl}
               </a>

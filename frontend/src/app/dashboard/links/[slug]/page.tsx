@@ -58,7 +58,7 @@ export default function LinkStatsPage() {
       </Link>
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <h1 className="font-mono text-2xl font-bold text-indigo-300">{slug}</h1>
+        <h1 className="font-mono text-2xl font-bold text-zinc-50">{slug}</h1>
         <div className="flex gap-1 rounded-lg border border-white/10 bg-zinc-900/60 p-1">
           {DAY_OPTIONS.map((d) => (
             <button
@@ -66,7 +66,7 @@ export default function LinkStatsPage() {
               onClick={() => setDays(d)}
               className={`rounded-md px-3 py-1 text-xs font-medium transition ${
                 days === d
-                  ? 'bg-gradient-accent text-white'
+                  ? 'bg-white text-zinc-900'
                   : 'text-zinc-400 hover:text-zinc-100'
               }`}
             >
@@ -79,7 +79,7 @@ export default function LinkStatsPage() {
       {!apiKey ? (
         <div className="rounded-xl border border-white/10 bg-zinc-900/60 px-4 py-3 text-sm text-zinc-400">
           Enter your admin API key on the{' '}
-          <Link href="/dashboard" className="text-indigo-400 hover:underline">
+          <Link href="/dashboard" className="text-zinc-200 underline hover:text-white">
             dashboard
           </Link>{' '}
           to view stats.
@@ -100,7 +100,7 @@ export default function LinkStatsPage() {
       ) : stats ? (
         <div className="space-y-6">
           <div className="rounded-xl border border-white/10 bg-zinc-900/60 p-5 shadow-glow-sm">
-            <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-violet-400">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-widest text-zinc-400">
               Total clicks (last {days} days)
             </p>
             <p className="mb-4 text-4xl font-extrabold text-zinc-50">{stats.totalClicks}</p>
