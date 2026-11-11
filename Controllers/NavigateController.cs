@@ -13,18 +13,15 @@ public class NavigateController : ControllerBase
 
     private readonly UrlShortenerContext _context;
     private readonly IClickEventQueue _clickQueue;
-    private readonly IConfiguration _configuration;
     private readonly IUrlSafetyChecker _safetyChecker;
 
     public NavigateController(
         UrlShortenerContext context,
         IClickEventQueue clickQueue,
-        IConfiguration configuration,
         IUrlSafetyChecker safetyChecker)
     {
         _context = context;
         _clickQueue = clickQueue;
-        _configuration = configuration;
         _safetyChecker = safetyChecker;
     }
 
@@ -72,14 +69,12 @@ public class NavigateController : ControllerBase
         return Redirect(url.OriginalUrl);
     }
 
-    private string BuildFrontendUrl(string path)
-    {
-        var configuredDomain = _configuration["App:ShortUrlDomain"];
-        var domainName = string.IsNullOrWhiteSpace(configuredDomain)
-            ? $"{Request.Scheme}://{Request.Host}"
-            : configuredDomain.TrimEnd('/');
-        return $"{domainName}{path}";
-    }
+    // Deliberately uses the current request's own host rather than App:ShortUrlDomain:
+    // that config value is shared across environments (e.g. Preview and Production both
+    // point at the production domain), so using it here would bounce a Preview deployment's
+    // not-found/expired/unsafe redirects over to production instead of keeping them on the
+    // deployment that's actually serving the request. In production the two are identical.
+    private string BuildFrontendUrl(string path) => $"{Request.Scheme}://{Request.Host}{path}";
 
     // Enqueues a best-effort analytics event; never blocks or slows the redirect.
     // Intentionally does not record the client's raw IP address.
