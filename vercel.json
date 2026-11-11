@@ -12,7 +12,18 @@
   "rewrites": [
     { "source": "/api/(.*)", "destination": { "service": "api" } },
     { "source": "/health",   "destination": { "service": "api" } },
-    { "source": "/:slug([A-Za-z0-9]{6})", "destination": { "service": "api" } },
+
+    { "source": "/_next/(.*)",        "destination": { "service": "frontend" } },
+    { "source": "/favicon.ico",       "destination": { "service": "frontend" } },
+    { "source": "/robots.txt",        "destination": { "service": "frontend" } },
+    { "source": "/sitemap.xml",       "destination": { "service": "frontend" } },
+    { "source": "/dashboard",         "destination": { "service": "frontend" } },
+    { "source": "/dashboard/(.*)",    "destination": { "service": "frontend" } },
+    { "source": "/link-expired",      "destination": { "service": "frontend" } },
+    { "source": "/link-not-found",    "destination": { "service": "frontend" } },
+
+    { "source": "/:slug([A-Za-z0-9_-]{3,30})", "destination": { "service": "api" } },
+
     { "source": "/(.*)",     "destination": { "service": "frontend" } }
   ]
 }

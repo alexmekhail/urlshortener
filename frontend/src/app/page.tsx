@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { shortenUrl } from '@/lib/api'
 import { ApiError } from '@/types'
 import Spinner from '@/components/Spinner'
@@ -13,9 +13,14 @@ const EXPIRATION_LABELS: Record<string, string> = {
   '30d': 'Expires in 30 days',
 }
 
+const ALIAS_PATTERN = /^[A-Za-z0-9_-]{3,30}$/
+
 export default function HomePage() {
   const [inputUrl, setInputUrl] = useState('')
   const [expiresIn, setExpiresIn] = useState('')
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [alias, setAlias] = useState('')
+  const [previewHost, setPreviewHost] = useState('url-y.net')
   const [shortUrl, setShortUrl] = useState<string | null>(null)
   const [resultExpiresIn, setResultExpiresIn] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -23,14 +28,29 @@ export default function HomePage() {
   const [copied, setCopied] = useState(false)
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  useEffect(() => {
+    setPreviewHost(window.location.host)
+  }, [])
+
+  const aliasFormatError =
+    alias && !ALIAS_PATTERN.test(alias)
+      ? 'Alias must be 3-30 characters: letters, numbers, hyphens, underscores.'
+      : null
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError(null)
     setShortUrl(null)
+
+    if (aliasFormatError) {
+      setError(aliasFormatError)
+      return
+    }
+
     setLoading(true)
 
     try {
-      const result = await shortenUrl(inputUrl, expiresIn)
+      const result = await shortenUrl(inputUrl, expiresIn, alias || undefined)
       setShortUrl(result)
       setResultExpiresIn(expiresIn)
     } catch (err) {
@@ -101,25 +121,67 @@ export default function HomePage() {
             </button>
           </div>
 
-          {/* Expiration selector */}
-          <div className="flex items-center justify-center gap-2 px-1 text-sm text-zinc-400">
-            <label htmlFor="expires-select">Expires</label>
-            <select
-              id="expires-select"
-              value={expiresIn}
-              onChange={(e) => setExpiresIn(e.target.value)}
-              disabled={loading}
-              className="rounded-lg border border-white/10 bg-zinc-900/60 px-2 py-1 text-sm text-zinc-200 transition
-                focus:border-indigo-400/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/30
-                disabled:opacity-60"
+          {/* Expiration selector + advanced options toggle */}
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 px-1 text-sm text-zinc-400">
+            <div className="flex items-center gap-2">
+              <label htmlFor="expires-select">Expires</label>
+              <select
+                id="expires-select"
+                value={expiresIn}
+                onChange={(e) => setExpiresIn(e.target.value)}
+                disabled={loading}
+                className="rounded-lg border border-white/10 bg-zinc-900/60 px-2 py-1 text-sm text-zinc-200 transition
+                  focus:border-indigo-400/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/30
+                  disabled:opacity-60"
+              >
+                <option value="">Never</option>
+                <option value="1h">1 hour</option>
+                <option value="1d">1 day</option>
+                <option value="7d">7 days</option>
+                <option value="30d">30 days</option>
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowAdvanced((v) => !v)}
+              className="text-xs font-medium text-zinc-400 underline decoration-dotted underline-offset-2 transition hover:text-zinc-200"
+              aria-expanded={showAdvanced}
+              aria-controls="advanced-options"
             >
-              <option value="">Never</option>
-              <option value="1h">1 hour</option>
-              <option value="1d">1 day</option>
-              <option value="7d">7 days</option>
-              <option value="30d">30 days</option>
-            </select>
+              {showAdvanced ? 'Hide advanced options' : 'Advanced options'}
+            </button>
           </div>
+
+          {/* Advanced options — custom alias */}
+          {showAdvanced && (
+            <div id="advanced-options" className="glass rounded-xl border border-white/10 p-3">
+              <label htmlFor="alias-input" className="mb-1.5 block text-xs font-medium text-zinc-400">
+                Custom alias (optional)
+              </label>
+              <input
+                id="alias-input"
+                type="text"
+                value={alias}
+                onChange={(e) => setAlias(e.target.value)}
+                placeholder="my-link"
+                disabled={loading}
+                className="w-full rounded-lg border border-white/10 bg-zinc-900/60 px-3 py-2 text-sm text-zinc-100 shadow-sm transition
+                  placeholder:text-zinc-500
+                  focus:border-indigo-400/60 focus:outline-none focus:ring-2 focus:ring-indigo-500/30
+                  disabled:opacity-60"
+                aria-describedby="alias-preview"
+              />
+              <p id="alias-preview" className="mt-1.5 font-mono text-xs text-zinc-500">
+                {previewHost}/{alias || <span className="italic text-zinc-600">random</span>}
+              </p>
+              {aliasFormatError && (
+                <p className="mt-1.5 text-xs text-red-400" role="alert">
+                  {aliasFormatError}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Inline error — shown instead of alert() */}
           {error && (

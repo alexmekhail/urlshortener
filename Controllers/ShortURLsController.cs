@@ -59,9 +59,28 @@ public class ShortUrlsController : ControllerBase
                 $"Invalid expiresIn value. Must be one of: {string.Join(", ", ExpirationOptions.ValidValues)}, or omitted for no expiry.");
         }
 
-        // Duplicate detection: only when no expiry was requested, and only reuses a link
-        // that is itself active, not expired, and also has no expiry (same expiry setting).
-        if (expiresAt == null)
+        var alias = string.IsNullOrWhiteSpace(request.Alias) ? null : request.Alias;
+        if (alias != null)
+        {
+            if (!AliasValidator.IsValidFormat(alias))
+            {
+                return BadRequest(
+                    $"Alias must be {AliasValidator.MinLength}-{AliasValidator.MaxLength} characters " +
+                    "and contain only letters, numbers, hyphens, and underscores.");
+            }
+
+            if (ReservedAliases.IsReserved(alias))
+                return BadRequest($"'{alias}' is a reserved word and can't be used as an alias.");
+
+            // Case-sensitive, like generated slugs.
+            var aliasTaken = await _context.Urls.AnyAsync(u => u.UrlId == alias);
+            if (aliasTaken)
+                return Conflict($"The alias '{alias}' is already taken.");
+        }
+
+        // Duplicate detection: only when no expiry and no custom alias were requested, and only
+        // reuses a link that is itself active, not expired, and also has no expiry (same expiry setting).
+        if (expiresAt == null && alias == null)
         {
             var existing = await _context.Urls.FirstOrDefaultAsync(u =>
                 u.OriginalUrl == request.Url && u.IsActive && u.ExpiresAt == null);
@@ -69,7 +88,7 @@ public class ShortUrlsController : ControllerBase
                 return Ok(existing.ShortenedUrl);
         }
 
-        var slug = await _slugGenerator.GenerateUniqueSlugAsync(_context);
+        var slug = alias ?? await _slugGenerator.GenerateUniqueSlugAsync(_context);
         var domainName = string.IsNullOrWhiteSpace(configuredDomain)
             ? $"{HttpContext.Request.Scheme}://{HttpContext.Request.Host}"
             : configuredDomain.TrimEnd('/');

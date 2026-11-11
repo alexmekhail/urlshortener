@@ -26,14 +26,22 @@ graph LR
     API -->|Query| DB[(Neon Postgres)]
 ```
 
-Both services share the same Vercel domain. Routing is handled by `vercel.json`:
+Both services share the same Vercel domain. Routing is handled by `vercel.json`,
+evaluated top-to-bottom (first match wins):
 
-- `GET /{6-char-slug}` → API (single indexed lookup, 302 redirect, 5-min CDN cache)
-- `POST /api/urls` → API
-- `GET /api/urls` → API
-- `DELETE /api/urls/{slug}` → API
-- `GET /health` → API
-- `GET /*` → Next.js frontend
+1. `/api/*`, `/health` → API
+2. Known frontend paths, matched explicitly so they can never be shadowed by a
+   custom alias: `/_next/*`, `/favicon.ico`, `/robots.txt`, `/sitemap.xml`,
+   `/dashboard`, `/dashboard/*`, `/link-expired`, `/link-not-found` → frontend
+3. `/:slug([A-Za-z0-9_-]{3,30})` (any remaining single path segment, 3-30 chars,
+   letters/numbers/hyphen/underscore — covers both generated 6-char slugs and
+   custom aliases) → API
+4. Everything else (`/`, unmatched paths) → frontend
+
+New frontend routes must be added to step 2 **and** to `ReservedAliases` in
+`Services/ReservedAliases.cs` (enforced by `ReservedAliasesTests`), or a custom
+alias with that name would be unreachable — rule 2 would always win before a
+request reaches the API.
 
 ---
 
@@ -43,8 +51,9 @@ Both services share the same Vercel domain. Routing is handled by `vercel.json`:
 - **Admin dashboard** — list and deactivate links, with a per-link click count (requires API key)
 - **Click analytics** — total clicks, a daily time series, and referrer/country/device/browser breakdowns per link
 - **Case-sensitive slugs** — 6-character base-62 random codes
+- **Custom aliases** — optional human-readable slug (3-30 chars) instead of a random one
 - **Link expiration** — optional `expiresIn` of 1 hour, 1 day, 7 days, or 30 days; expired links stop redirecting
-- **Duplicate detection** — posting the same URL twice (with no expiry) returns the same short link
+- **Duplicate detection** — posting the same URL twice (with no expiry or alias) returns the same short link
 - **Security**: rate limiting (10 POST/IP/min), http/https-only, max URL length (2000 chars), self-referral rejection
 - **`/health`** endpoint for uptime monitoring
 - **Fast cold starts** — `PublishReadyToRun` pre-compiles .NET to native code; Vercel scales down after 5 min idle but restarts in ~2–5 s
@@ -83,6 +92,22 @@ Duplicate detection only reuses an existing link when the request has **no** `ex
 and the existing link is active, not expired, and also has no expiry — a link created
 with an expiry is never deduplicated against.
 
+### Custom Aliases
+
+`POST /api/urls` accepts an optional `alias`: 3-30 characters, letters/numbers/hyphen/
+underscore only (`[A-Za-z0-9_-]`), case-sensitive like generated slugs.
+
+- Invalid format → `400`
+- Reserved word (see `Services/ReservedAliases.cs`) → `400`
+- Already taken → `409`
+- Duplicate detection is skipped entirely when an alias is given (same reasoning as
+  expiry: an explicit alias is a deliberate choice, not interchangeable with another
+  link for the same URL).
+
+See the routing breakdown above — `ReservedAliases` is what keeps a custom alias from
+ever being assigned a name that `vercel.json` would route to the frontend instead of
+the API.
+
 ---
 
 ## API Endpoints
@@ -103,6 +128,14 @@ curl -X POST https://www.url-y.net/api/urls \
   -H "Content-Type: application/json" \
   -d '{"url": "https://github.com/alexmekhail"}'
 # → "https://www.url-y.net/ab1Cd2"
+```
+
+**Example — shorten with a custom alias and a 7-day expiry:**
+```bash
+curl -X POST https://www.url-y.net/api/urls \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://github.com/alexmekhail", "alias": "my-profile", "expiresIn": "7d"}'
+# → "https://www.url-y.net/my-profile"
 ```
 
 **Example — delete a link (requires API key):**

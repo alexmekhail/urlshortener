@@ -22,4 +22,8 @@ public class ShortUrl
     /// <summary>One of "1h", "1d", "7d", "30d", or null/omitted for no expiry.</summary>
     [JsonPropertyName("expiresIn")]
     public string? ExpiresIn { get; set; }
+
+    /// <summary>Optional custom slug, 3-30 chars, [A-Za-z0-9_-], case-sensitive.</summary>
+    [JsonPropertyName("alias")]
+    public string? Alias { get; set; }
 }

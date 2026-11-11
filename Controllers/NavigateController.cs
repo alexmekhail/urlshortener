@@ -20,9 +20,13 @@ public class NavigateController : ControllerBase
         _configuration = configuration;
     }
 
-    // length(6) constraint ensures known frontend routes (e.g. /dashboard) never match here.
-    // All slugs are exactly 6 characters (see SlugGenerator.SlugLength).
-    [HttpGet("{slug:length(6)}")]
+    // Matches both generated 6-char slugs and custom aliases (3-30 chars, [A-Za-z0-9_-];
+    // see AliasValidator). In production, vercel.json routes known frontend paths
+    // (/dashboard, /_next/*, etc.) to the frontend before a request ever reaches this
+    // route, so there's no runtime collision even though e.g. "dashboard" would
+    // technically match this pattern — ReservedAliases additionally guarantees no
+    // alias/slug is ever assigned one of those reserved words in the first place.
+    [HttpGet("{slug:regex([[A-Za-z0-9_-]]{{3,30}})}")]
     public async Task<IActionResult> Navigate(string slug)
     {
         var url = await _context.Urls.SingleOrDefaultAsync(u => u.UrlId == slug);

@@ -19,7 +19,9 @@ public class SlugGenerator : ISlugGenerator
         do
         {
             slug = GenerateSlug();
-        } while (await context.Urls.AnyAsync(u => u.UrlId == slug));
+            // Astronomically unlikely (62^6 possibilities) but checked anyway: never hand out
+            // a random slug that happens to collide with a reserved word (e.g. "health").
+        } while (ReservedAliases.IsReserved(slug) || await context.Urls.AnyAsync(u => u.UrlId == slug));
 
         return slug;
     }
