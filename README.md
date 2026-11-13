@@ -13,7 +13,7 @@ A full-stack URL shortener: paste a long link, get a short one. Built as a portf
 | API | C# / ASP.NET Core 8 |
 | ORM | Entity Framework Core 8 + Npgsql |
 | Database | Neon Postgres (serverless, free tier) |
-| Frontend | Next.js 15 / React / Tailwind CSS |
+| Frontend | Next.js 14 (App Router) / React / Tailwind CSS |
 | Hosting | Vercel (container runtime + Next.js, one project) |
 
 ## Architecture
@@ -32,7 +32,7 @@ evaluated top-to-bottom (first match wins):
 1. `/api/*`, `/health` → API
 2. Known frontend paths, matched explicitly so they can never be shadowed by a
    custom alias: `/_next/*`, `/favicon.ico`, `/robots.txt`, `/sitemap.xml`,
-   `/dashboard`, `/dashboard/*`, `/link-expired`, `/link-not-found` → frontend
+   `/dashboard`, `/dashboard/*`, `/link-expired`, `/link-not-found`, `/link-unsafe` → frontend
 3. `/:slug([A-Za-z0-9_-]{3,30})` (any remaining single path segment, 3-30 chars,
    letters/numbers/hyphen/underscore — covers both generated 6-char slugs and
    custom aliases) → API
@@ -182,14 +182,18 @@ curl -X DELETE https://www.url-y.net/api/urls/ab1Cd2 \
 
 ## Testing
 
-**What's covered:**
-- 4 slug generator unit tests (length, charset, variety, no special chars)
-- 15 API integration tests (create, delete, list, redirect, CORS, auth)
-- 3 case-sensitivity tests (Postgres is case-sensitive; slugs must match exactly)
-- URL validation tests (max length, self-referral rejection, http/https-only)
-- Rate limiting tests (POST returns 429 after limit is exceeded; GET is not limited)
+**What's covered (71 tests):**
+- Slug generation — length, charset, variety, no special characters
+- Core API behavior — create, delete, list, redirect, CORS, auth, case-sensitivity (Postgres is case-sensitive; slugs must match exactly)
+- URL validation & rate limiting — max length, self-referral rejection, http/https-only, 429 after the limit, GET requests aren't rate-limited
+- Click analytics — a recorded click is reflected in stats (polled, since ingestion is async), referrer/device/browser breakdowns, auth on the stats endpoint
+- User-Agent parsing — device type and browser classification across desktop/mobile/tablet/bot UAs
+- Link expiration — `expiresIn` validation, duplicate detection skipped when an expiry is given, an expired link redirects to `/link-expired`
+- Custom aliases — valid/invalid-format/reserved/already-taken aliases, case-sensitivity, duplicate detection skipped when an alias is given
+- Reserved aliases — a scan of `frontend/src/app` fails the build if a new top-level route isn't added to `ReservedAliases`
+- Link safety — safe vs. flagged URL creation and the lazy 24h redirect re-check, via `FakeUrlSafetyChecker` (never calls Google)
 
-Integration tests use **Testcontainers** — a real Postgres container spins up per test class. No mocks.
+Integration tests use **Testcontainers** — a real Postgres container spins up per test class. No mocks, except the Safe Browsing checker, which is faked everywhere (tests never call Google).
 
 **Run locally:**
 ```bash
